@@ -1,0 +1,2 @@
+ALTER TABLE events
+DROP CONSTRAINT events_name_length_check;

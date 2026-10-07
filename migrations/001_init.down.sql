@@ -1,0 +1,4 @@
+BEGIN;
+DROP TABLE bookings;
+DROP TABLE events;
+COMMIT;
