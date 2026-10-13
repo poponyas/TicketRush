@@ -17,6 +17,22 @@ type recordingRepo struct {
 	calls int
 }
 
+func (r *recordingRepo) GetEvent(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (domain.Event, error) {
+	panic("unexpected GetEvent call in CreateEvent test")
+}
+
+func (r *recordingRepo) GetEvents(context.Context, int, int, uuid.UUID, uuid.UUID) ([]domain.Event, error) {
+	panic("unexpected GetEvents call in CreateEvent test")
+}
+
+func (r *recordingRepo) UpdateEvent(context.Context, domain.Event, uuid.UUID) (domain.Event, error) {
+	panic("unexpected UpdateEvent call in CreateEvent test")
+}
+
+func (r *recordingRepo) DeleteEvent(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) error {
+	panic("unexpected DeleteEvent call in CreateEvent test")
+}
+
 func (r *recordingRepo) CreateEvent(ctx context.Context, e domain.Event, actor uuid.UUID) (domain.Event, error) {
 	r.calls++
 	r.saved = e

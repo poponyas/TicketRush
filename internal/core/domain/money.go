@@ -11,8 +11,8 @@ const CurrencyRUB = "RUB"
 // Amount is in rubles, not kopecks. SQL representation: NUMERIC(18,2).
 // Parse strings with decimal.NewFromString; do not go through float64.
 type Money struct {
-	Amount   decimal.Decimal `json:"amount"`
-	Currency string          `json:"currency"`
+	Amount   decimal.Decimal `json:"amount" db:"amount"`
+	Currency string          `json:"currency" db:"currency"`
 }
 
 func NewMoney(amount string, currency string) (Money, error) {

@@ -15,10 +15,10 @@ const (
 )
 
 type Booking struct {
-	ID        uuid.UUID
-	UserID    uuid.UUID
-	SessionID uuid.UUID
-	Status    BookingStatus
-	ExpiresAt time.Time
-	CreatedAt time.Time
+	ID        uuid.UUID     `db:"id"`
+	UserID    uuid.UUID     `db:"user_id"`
+	SessionID uuid.UUID     `db:"session_id"`
+	Status    BookingStatus `db:"status"`
+	ExpiresAt time.Time     `db:"expires_at"`
+	CreatedAt time.Time     `db:"created_at"`
 }

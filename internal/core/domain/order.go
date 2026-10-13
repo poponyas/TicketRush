@@ -16,11 +16,12 @@ const (
 )
 
 type Order struct {
-	ID        uuid.UUID
-	BookingID uuid.UUID
-	UserID    uuid.UUID
-	Total     Money
-	Status    OrderStatus
-	CreatedAt time.Time
-	PaidAt    *time.Time
+	ID        uuid.UUID `db:"id"`
+	BookingID uuid.UUID `db:"booking_id"`
+	UserID    uuid.UUID `db:"user_id"`
+	// Map the amount and currency explicitly when the order schema is added.
+	Total     Money       `db:"-"`
+	Status    OrderStatus `db:"status"`
+	CreatedAt time.Time   `db:"created_at"`
+	PaidAt    *time.Time  `db:"paid_at"`
 }

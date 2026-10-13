@@ -6,10 +6,10 @@ import (
 )
 
 type Venue struct {
-	ID        uuid.UUID
-	Name      string
-	City      string
-	Address   string
-	Timezone  string
-	CreatedAt time.Time
+	ID        uuid.UUID `db:"id"`
+	Name      string    `db:"name"`
+	City      string    `db:"city"`
+	Address   string    `db:"address"`
+	Timezone  string    `db:"timezone"`
+	CreatedAt time.Time `db:"created_at"`
 }

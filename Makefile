@@ -1,6 +1,12 @@
 STEPS ?= 1
 
-.PHONY: env-up env-down migrate-prepare migrate-up migrate-down migrate-version seed run
+.PHONY: env-up env-down migrate-prepare migrate-up migrate-down migrate-version seed run test test-integration
+
+test:
+	go test -mod=readonly -race ./...
+
+test-integration:
+	sh scripts/test_integration.sh
 
 env-up:
 	docker compose up -d --wait postgres

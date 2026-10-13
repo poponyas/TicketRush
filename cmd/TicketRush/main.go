@@ -4,6 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
+	"os"
+	"os/signal"
+	"strconv"
+	"syscall"
+	"time"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
@@ -16,13 +24,6 @@ import (
 	service "github.com/poponyas/TicketRush/internal/feature/events/service"
 	transport "github.com/poponyas/TicketRush/internal/feature/events/transport"
 	"go.uber.org/zap"
-	"net"
-	"net/http"
-	"os"
-	"os/signal"
-	"strconv"
-	"syscall"
-	"time"
 )
 
 func main() {
@@ -33,6 +34,7 @@ func main() {
 		os.Exit(1)
 	}
 }
+
 func run(ctx context.Context) error {
 	if err := godotenv.Load(".env"); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("load env: %w", err)
@@ -99,6 +101,14 @@ func run(ctx context.Context) error {
 	}
 	eventTransport := transport.NewEventsHTTPTransport(service.NewEventsService(repository.NewEventsRepo(pool)))
 	r.With(auth.RequireOrganizer).Post("/api/v1/organizer/events", eventTransport.CreateEvent)
+	r.With(auth.RequireOrganizer).
+		Get("/api/v1/organizer/events/{event_id}", eventTransport.GetEvent)
+	r.With(auth.RequireOrganizer).
+		Get("/api/v1/organizer/events", eventTransport.GetEvents)
+	r.With(auth.RequireOrganizer).
+		Patch("/api/v1/organizer/events/{event_id}", eventTransport.UpdateEvent)
+	r.With(auth.RequireOrganizer).
+		Delete("/api/v1/organizer/events/{event_id}", eventTransport.DeleteEvent)
 	r.Get("/livez", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
 	r.Get("/readyz", func(w http.ResponseWriter, r *http.Request) {
 		pingCtx, cancel := context.WithTimeout(r.Context(), time.Second)

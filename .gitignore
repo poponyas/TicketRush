@@ -1,3 +1,29 @@
 .env
+.env.*
+!.env.example
 /logs/
 *.log
+
+# Local learning notes, assistant state and the archived exercise.
+/docs/
+.codex/
+.agents/
+/AGENTS.md
+/internal/legacy/
+
+# Local editors and operating-system files.
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Build, test and profiling output.
+/bin/
+/dist/
+/tmp/
+/coverage/
+coverage.out
+*.test
+*.prof
