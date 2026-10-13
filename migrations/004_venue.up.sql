@@ -1,0 +1,6 @@
+BEGIN;
+
+ALTER TABLE venues DROP COLUMN timezone;
+ALTER TABLE venues DROP COLUMN created_at;
+
+COMMIT;

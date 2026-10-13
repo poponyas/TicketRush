@@ -1,7 +1,8 @@
 package events_transport_test
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -55,7 +56,7 @@ func httpCall(t *testing.T, h http.Handler, identity *auth.Identity, method, pat
 		require.Empty(t, w.Body.String())
 	} else {
 		require.Equal(t, "application/json", w.Header().Get("Content-Type"))
-		require.True(t, json.Valid(w.Body.Bytes()), w.Body.String())
+		require.True(t, jsontext.Value(w.Body.Bytes()).IsValid(), w.Body.String())
 	}
 	if status >= 400 {
 		var response struct {

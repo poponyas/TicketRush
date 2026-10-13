@@ -2,9 +2,9 @@ package events_transport
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
-	"io"
 	"mime"
 	"net/http"
 
@@ -46,17 +46,9 @@ func (h *EventsHTTPTransport) UpdateEvent(rw http.ResponseWriter, r *http.Reques
 	}
 	r.Body = http.MaxBytesReader(rw, r.Body, maxCreateEventBody)
 	defer r.Body.Close()
-	decoder := json.NewDecoder(r.Body)
 	var update UpdateEventRequest
-	if err := decoder.Decode(&update); err != nil {
-		decodeError(responseHandler, err)
-		return
-	}
-	if err := decoder.Decode(new(any)); err != io.EOF {
-		if err == nil {
-			err = fmt.Errorf("multiple JSON values")
-		}
-		decodeError(responseHandler, err)
+	if err := json.UnmarshalRead(r.Body, &update, json.RejectUnknownMembers(true)); err != nil {
+		core_response.DecodeError(responseHandler, err)
 		return
 	}
 
@@ -84,7 +76,7 @@ func (h *EventsHTTPTransport) UpdateEvent(rw http.ResponseWriter, r *http.Reques
 }
 
 func (u *UpdateEventRequest) UnmarshalJSON(data []byte) error {
-	var fields map[string]json.RawMessage
+	var fields map[string]jsontext.Value
 	if err := json.Unmarshal(data, &fields); err != nil {
 		return err
 	}
@@ -108,7 +100,7 @@ func (u *UpdateEventRequest) UnmarshalJSON(data []byte) error {
 	type plain UpdateEventRequest
 
 	var decoded plain
-	if err := json.Unmarshal(data, &decoded); err != nil {
+	if err := json.Unmarshal(data, &decoded, json.RejectUnknownMembers(true)); err != nil {
 		return err
 	}
 

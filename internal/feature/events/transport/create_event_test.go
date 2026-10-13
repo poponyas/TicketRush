@@ -2,7 +2,7 @@ package events_transport_test
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/poponyas/TicketRush/internal/core/auth"
