@@ -7,8 +7,8 @@ import (
 
 // One user may belong to several organizers and also buy tickets.
 type OrganizerMembership struct {
-	OrganizerID uuid.UUID
-	UserID      uuid.UUID
-	Role        Role
-	CreatedAt   time.Time
+	OrganizerID uuid.UUID `db:"organizer_id"`
+	UserID      uuid.UUID `db:"user_id"`
+	Role        Role      `db:"role"`
+	CreatedAt   time.Time `db:"created_at"`
 }

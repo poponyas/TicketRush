@@ -7,12 +7,12 @@ import (
 )
 
 type OutboxEvent struct {
-	ID            uuid.UUID
-	AggregateID   uuid.UUID
-	Type          string
-	SchemaVersion int
-	Payload       json.RawMessage
-	CreatedAt     time.Time
-	PublishedAt   *time.Time
-	Attempts      int
+	ID            uuid.UUID       `db:"id"`
+	AggregateID   uuid.UUID       `db:"aggregate_id"`
+	Type          string          `db:"type"`
+	SchemaVersion int             `db:"schema_version"`
+	Payload       json.RawMessage `db:"payload"`
+	CreatedAt     time.Time       `db:"created_at"`
+	PublishedAt   *time.Time      `db:"published_at"`
+	Attempts      int             `db:"attempts"`
 }

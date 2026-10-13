@@ -9,15 +9,16 @@ import (
 )
 
 type TicketType struct {
-	ID        uuid.UUID
-	SessionID uuid.UUID
-	Name      string
-	Price     Money
-	Capacity  int
-	Available int
-	Held      int
-	Sold      int
-	CreatedAt time.Time
+	ID        uuid.UUID `db:"id"`
+	SessionID uuid.UUID `db:"session_id"`
+	Name      string    `db:"name"`
+	// Price uses two SQL columns (price, currency); map them explicitly in the repository.
+	Price     Money     `db:"-"`
+	Capacity  int       `db:"capacity"`
+	Available int       `db:"available"`
+	Held      int       `db:"held"`
+	Sold      int       `db:"sold"`
+	CreatedAt time.Time `db:"created_at"`
 }
 
 func (t TicketType) Validate() error {

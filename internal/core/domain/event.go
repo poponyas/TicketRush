@@ -19,15 +19,15 @@ const (
 
 // Event describes the product. Dates and inventory belong to Session and TicketType.
 type Event struct {
-	ID          uuid.UUID
-	OrganizerID uuid.UUID
-	Title       string
-	Description string
-	Category    string
-	PosterKey   string
-	Status      EventStatus
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID          uuid.UUID   `db:"id"`
+	OrganizerID uuid.UUID   `db:"organizer_id"`
+	Title       string      `db:"name"`
+	Description string      `db:"description"`
+	Category    string      `db:"category"`
+	PosterKey   string      `db:"poster_key"`
+	Status      EventStatus `db:"status"`
+	CreatedAt   time.Time   `db:"created_at"`
+	UpdatedAt   time.Time   `db:"updated_at"`
 }
 
 func NewEvent(organizerID uuid.UUID, title, description, category string) Event {
@@ -38,6 +38,9 @@ func NewEvent(organizerID uuid.UUID, title, description, category string) Event 
 func (e Event) Validate() error {
 	if e.ID == uuid.Nil || e.OrganizerID == uuid.Nil {
 		return fmt.Errorf("%w: event and organizer IDs are required", coreerrors.ErrInvalidArgument)
+	}
+	if strings.ContainsRune(e.Title, '\x00') || strings.ContainsRune(e.Description, '\x00') || strings.ContainsRune(e.Category, '\x00') {
+		return fmt.Errorf("%w: event text must not contain a null character", coreerrors.ErrInvalidArgument)
 	}
 	if strings.TrimSpace(e.Title) == "" || utf8.RuneCountInString(e.Title) > 200 {
 		return fmt.Errorf("%w: name must contain 1 to 200 characters", coreerrors.ErrInvalidArgument)

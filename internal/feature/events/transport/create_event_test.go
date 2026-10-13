@@ -23,6 +23,22 @@ type stubService struct {
 	err   error
 }
 
+func (s *stubService) GetEvent(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (domain.Event, error) {
+	panic("unexpected GetEvent call in CreateEvent test")
+}
+
+func (s *stubService) GetEvents(context.Context, *int, *int, uuid.UUID, uuid.UUID) (service.EventsPage, error) {
+	panic("unexpected GetEvents call in CreateEvent test")
+}
+
+func (s *stubService) UpdateEvent(context.Context, service.UpdateEventInput, uuid.UUID, uuid.UUID, uuid.UUID) (domain.Event, error) {
+	panic("unexpected UpdateEvent call in CreateEvent test")
+}
+
+func (s *stubService) DeleteEvent(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) error {
+	panic("unexpected DeleteEvent call in CreateEvent test")
+}
+
 func (s *stubService) CreateEvent(ctx context.Context, input service.CreateEventInput) (domain.Event, error) {
 	s.calls++
 	s.input = input
