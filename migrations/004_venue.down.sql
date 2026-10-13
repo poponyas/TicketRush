@@ -1,0 +1,12 @@
+BEGIN;
+
+ALTER TABLE venues
+    ADD COLUMN timezone TEXT NOT NULL DEFAULT 'Europe/Moscow';
+
+ALTER TABLE venues
+    ALTER COLUMN timezone DROP DEFAULT;
+
+ALTER TABLE venues
+    ADD COLUMN created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+COMMIT;

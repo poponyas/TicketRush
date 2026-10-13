@@ -60,3 +60,20 @@ func RequireOrganizer(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
+// RequireVenueOwner checks the creation permission, not an organizer membership.
+func RequireVenueOwner(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		identity, ok := FromContext(r.Context())
+		h := response.NewHTTPResponseHandler(corelogger.FromContext(r.Context()), w)
+		if !ok {
+			h.ErrorResponse(coreerrors.ErrUnauthenticated, "authentication required")
+			return
+		}
+		if !identity.HasRole(domain.RoleVenueOwner) {
+			h.ErrorResponse(coreerrors.ErrForbidden, "venue owner access required")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}

@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -23,6 +24,9 @@ import (
 	repository "github.com/poponyas/TicketRush/internal/feature/events/repository"
 	service "github.com/poponyas/TicketRush/internal/feature/events/service"
 	transport "github.com/poponyas/TicketRush/internal/feature/events/transport"
+	venue_repository "github.com/poponyas/TicketRush/internal/feature/venue/repository"
+	venue_service "github.com/poponyas/TicketRush/internal/feature/venue/service"
+	venue_http_tranpsort "github.com/poponyas/TicketRush/internal/feature/venue/tranpsort"
 	"go.uber.org/zap"
 )
 
@@ -92,13 +96,32 @@ func run(ctx context.Context) error {
 		if err != nil || userID == uuid.Nil {
 			return fmt.Errorf("DEV_USER_ID must be a nonzero UUID")
 		}
-		organizerID, err := uuid.Parse(os.Getenv("DEV_ORGANIZER_ID"))
-		if err != nil || organizerID == uuid.Nil {
-			return fmt.Errorf("DEV_ORGANIZER_ID must be a nonzero UUID")
+		roles := []domain.Role{domain.RoleBuyer, domain.RoleOrganizer}
+		if raw := os.Getenv("DEV_ROLES"); raw != "" {
+			roles = nil
+			for _, value := range strings.Split(raw, ",") {
+				role := domain.Role(strings.TrimSpace(value))
+				switch role {
+				case domain.RoleBuyer, domain.RoleOrganizer, domain.RoleController, domain.RoleVenueOwner, domain.RoleAdmin:
+					roles = append(roles, role)
+				default:
+					return fmt.Errorf("DEV_ROLES contains an unsupported role %q", value)
+				}
+			}
 		}
-		r.Use(auth.DevIdentity(auth.Identity{UserID: userID, OrganizerID: organizerID, Roles: []domain.Role{domain.RoleBuyer, domain.RoleOrganizer}}))
+		identity := auth.Identity{UserID: userID, Roles: roles}
+		if identity.HasRole(domain.RoleOrganizer) {
+			organizerID, err := uuid.Parse(os.Getenv("DEV_ORGANIZER_ID"))
+			if err != nil || organizerID == uuid.Nil {
+				return fmt.Errorf("DEV_ORGANIZER_ID must be a nonzero UUID for the organizer role")
+			}
+			identity.OrganizerID = organizerID
+		}
+		r.Use(auth.DevIdentity(identity))
 		log.Warn("local dev authentication enabled")
 	}
+
+	//  ----------------------------- EVENTS -------------------------------------
 	eventTransport := transport.NewEventsHTTPTransport(service.NewEventsService(repository.NewEventsRepo(pool)))
 	r.With(auth.RequireOrganizer).Post("/api/v1/organizer/events", eventTransport.CreateEvent)
 	r.With(auth.RequireOrganizer).
@@ -119,6 +142,14 @@ func run(ctx context.Context) error {
 		}
 		w.WriteHeader(http.StatusOK)
 	})
+
+	// --------------------------------------------------------------------------
+
+	// ----------------------------- VENUES -------------------------------------
+	venueTransport := venue_http_tranpsort.NewHTTPVenueTransport(venue_service.NewVenueService(venue_repository.NewVenueRepository(pool)))
+	r.With(auth.RequireVenueOwner).Post("/api/v1/venues", venueTransport.CreateVenue)
+	r.Get("/api/v1/venues", venueTransport.GetVenues)
+	r.Get("/api/v1/venues/{venue_id}", venueTransport.GetVenue)
 	server := &http.Server{Addr: address, Handler: r, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second}
 	serveErrors := make(chan error, 1)
 	go func() { serveErrors <- server.ListenAndServe() }()

@@ -90,7 +90,7 @@ func (f *Fixture) Session(t *testing.T, eventID uuid.UUID) uuid.UUID {
 	t.Helper()
 	venueID, sessionID := uuid.New(), uuid.New()
 	f.venueIDs = append(f.venueIDs, venueID)
-	f.Exec(t, `INSERT INTO venues(id,name,city,address,timezone) VALUES($1,'Hall','Moscow','Address','Europe/Moscow')`, venueID)
+	f.Exec(t, `INSERT INTO venues(id,name,city,address) VALUES($1,'Hall','Moscow','Address')`, venueID)
 	f.Exec(t, `INSERT INTO sessions(id,event_id,venue_id,starts_at,sales_start_at,sales_end_at)
 		VALUES($1,$2,$3,'2027-01-10 18:00+00','2026-01-01 00:00+00','2027-01-10 17:00+00')`, sessionID, eventID, venueID)
 	return sessionID

@@ -1,13 +1,15 @@
 package core_response
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"errors"
+	"fmt"
+	"net/http"
+
 	"github.com/go-chi/chi/v5/middleware"
 	coreerrors "github.com/poponyas/TicketRush/internal/core/errors"
 	corelogger "github.com/poponyas/TicketRush/internal/core/logger"
 	"go.uber.org/zap"
-	"net/http"
 )
 
 type HTTPResponseHandler struct {
@@ -78,4 +80,13 @@ func (h *HTTPResponseHandler) ErrorResponse(err error, msg string) {
 		h.logger.Warn(msg, zap.Error(err))
 	}
 	h.JSONResponse(ErrorResponse{Code: code, Message: publicMessage, RequestID: h.rw.Header().Get(middleware.RequestIDHeader)}, status)
+}
+
+func DecodeError(h *HTTPResponseHandler, err error) {
+	var maxBytes *http.MaxBytesError
+	if errors.As(err, &maxBytes) {
+		h.ErrorResponse(coreerrors.ErrPayloadTooLarge, "request too large")
+		return
+	}
+	h.ErrorResponse(fmt.Errorf("%w: %v", coreerrors.ErrInvalidArgument, err), "invalid JSON body")
 }
