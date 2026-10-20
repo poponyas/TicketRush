@@ -23,7 +23,10 @@ container_id=$(docker run --rm -d \
     postgres:18)
 
 attempt=0
-until docker exec "$container_id" pg_isready -U ticketrush_test -d ticketrush_test >/dev/null 2>&1; do
+# The initialization server accepts Unix-socket connections before the target
+# database is ready. Wait for a successful query over the final TCP listener.
+until docker exec -e PGPASSWORD=integration_test "$container_id" \
+    psql -h 127.0.0.1 -XAt -U ticketrush_test -d ticketrush_test -c 'SELECT 1' >/dev/null 2>&1; do
     attempt=$((attempt + 1))
     if [ "$attempt" -ge 60 ]; then
         echo "Test PostgreSQL did not become ready" >&2
@@ -36,6 +39,12 @@ done
 for migration in "$repo_dir"/migrations/*.up.sql; do
     docker exec -i "$container_id" psql -X -q -v ON_ERROR_STOP=1 \
         -U ticketrush_test -d ticketrush_test < "$migration"
+done
+
+# Verify that development fixtures match the latest schema and can be reapplied.
+for seed_attempt in 1 2; do
+    docker exec -i "$container_id" psql -X -q -v ON_ERROR_STOP=1 \
+        -U ticketrush_test -d ticketrush_test < "$repo_dir/scripts/seed.sql"
 done
 
 port=$(docker port "$container_id" 5432/tcp)

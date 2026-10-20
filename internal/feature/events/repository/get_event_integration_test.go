@@ -35,7 +35,7 @@ func TestGetEventPostgres(t *testing.T) {
 		_, _ = pool.Exec(cleanupCtx, `DELETE FROM organizers WHERE id=$1`, orgID)
 		_, _ = pool.Exec(cleanupCtx, `DELETE FROM users WHERE id=$1`, userID)
 	}()
-	_, err = pool.Exec(ctx, `INSERT INTO users(id,email) VALUES($1,$2)`, userID, userID.String()+"@example.test")
+	_, err = pool.Exec(ctx, `INSERT INTO users(id,email,password_hash) VALUES($1,$2,'unused-test-hash')`, userID, userID.String()+"@example.test")
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `INSERT INTO organizers(id,name) VALUES($1,'Integration')`, orgID)
 	require.NoError(t, err)
@@ -90,7 +90,7 @@ func TestGetEventPostgres(t *testing.T) {
 
 	_, err = pool.Exec(
 		ctx,
-		`INSERT INTO users(id,email) VALUES($1,$2)`,
+		`INSERT INTO users(id,email,password_hash) VALUES($1,$2,'unused-test-hash')`,
 		otherUserID,
 		otherUserID.String()+"@example.test",
 	)
