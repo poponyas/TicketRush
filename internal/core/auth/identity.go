@@ -12,6 +12,7 @@ import (
 
 type Identity struct {
 	UserID      uuid.UUID
+	SessionID   uuid.UUID
 	OrganizerID uuid.UUID
 	Roles       []domain.Role
 }

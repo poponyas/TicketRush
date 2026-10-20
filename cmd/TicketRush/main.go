@@ -21,9 +21,14 @@ import (
 	"github.com/poponyas/TicketRush/internal/core/domain"
 	corelogger "github.com/poponyas/TicketRush/internal/core/logger"
 	postgres "github.com/poponyas/TicketRush/internal/core/repository/postgres"
+	core_auth_password "github.com/poponyas/TicketRush/internal/core/security/password"
+	auth_token "github.com/poponyas/TicketRush/internal/core/security/token"
 	repository "github.com/poponyas/TicketRush/internal/feature/events/repository"
 	service "github.com/poponyas/TicketRush/internal/feature/events/service"
 	transport "github.com/poponyas/TicketRush/internal/feature/events/transport"
+	auth_repository "github.com/poponyas/TicketRush/internal/feature/identity/repository"
+	auth_service "github.com/poponyas/TicketRush/internal/feature/identity/service"
+	auth_http_transport "github.com/poponyas/TicketRush/internal/feature/identity/transport"
 	session_repository "github.com/poponyas/TicketRush/internal/feature/session/repository"
 	session_service "github.com/poponyas/TicketRush/internal/feature/session/service"
 	session_transport "github.com/poponyas/TicketRush/internal/feature/session/transport"
@@ -46,6 +51,22 @@ func run(ctx context.Context) error {
 	if err := godotenv.Load(".env"); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("load env: %w", err)
 	}
+
+	jwtConfig, err := auth_token.LoadJWTConfig()
+	if err != nil {
+		return fmt.Errorf("initialize JWT: %w", err)
+	}
+
+	tokenManager, err := auth_token.NewManager(
+		jwtConfig.Secret,
+		"ticketrush",
+		"ticketrush-api",
+		15*time.Minute,
+	)
+	if err != nil {
+		return fmt.Errorf("initialize JWT: %w", err)
+	}
+
 	loggerConfig, err := corelogger.NewConfig()
 	if err != nil {
 		return err
@@ -124,16 +145,46 @@ func run(ctx context.Context) error {
 		log.Warn("local dev authentication enabled")
 	}
 
+	//  ----------------------------- AUTH -------------------------------------
+	hasher, err := core_auth_password.NewHasher(core_auth_password.DefaultConfig())
+	if err != nil {
+		return fmt.Errorf("create password hasher: %w", err)
+	}
+
+	authRepo := auth_repository.NewAuthRepo(pool)
+	authService, err := auth_service.NewAuthService(authRepo, hasher, tokenManager)
+	if err != nil {
+		return fmt.Errorf("create auth service: %w", err)
+	}
+	authTransport := auth_http_transport.NewHTTPAuthTransport(authService)
+
+	r.Post("/api/v1/auth/register", authTransport.Register)
+	r.Post("/api/v1/auth/login", authTransport.Login)
+	r.Post("/api/v1/auth/refresh", authTransport.Refresh)
+	r.With(auth.Authenticate(tokenManager, authService)).
+		Post("/api/v1/auth/logout", authTransport.Logout)
+
+	protected := r.With()
+	if !devEnabled {
+		protected = r.With(auth.Authenticate(tokenManager, authService))
+	}
+	organizerProtected := protected.With(auth.RequireOrganizer)
+	if !devEnabled {
+		organizerProtected = protected.With(auth.SelectOrganizer(authService), auth.RequireOrganizer)
+	}
+
+	// --------------------------------------------------------------------------
+
 	//  ----------------------------- EVENTS -------------------------------------
 	eventTransport := transport.NewEventsHTTPTransport(service.NewEventsService(repository.NewEventsRepo(pool)))
-	r.With(auth.RequireOrganizer).Post("/api/v1/organizer/events", eventTransport.CreateEvent)
-	r.With(auth.RequireOrganizer).
+	organizerProtected.Post("/api/v1/organizer/events", eventTransport.CreateEvent)
+	organizerProtected.
 		Get("/api/v1/organizer/events/{event_id}", eventTransport.GetEvent)
-	r.With(auth.RequireOrganizer).
+	organizerProtected.
 		Get("/api/v1/organizer/events", eventTransport.GetEvents)
-	r.With(auth.RequireOrganizer).
+	organizerProtected.
 		Patch("/api/v1/organizer/events/{event_id}", eventTransport.UpdateEvent)
-	r.With(auth.RequireOrganizer).
+	organizerProtected.
 		Delete("/api/v1/organizer/events/{event_id}", eventTransport.DeleteEvent)
 	r.Get("/livez", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
 	r.Get("/readyz", func(w http.ResponseWriter, r *http.Request) {
@@ -150,17 +201,18 @@ func run(ctx context.Context) error {
 
 	// ----------------------------- VENUES -------------------------------------
 	venueTransport := venue_http_tranpsort.NewHTTPVenueTransport(venue_service.NewVenueService(venue_repository.NewVenueRepository(pool)))
-	r.With(auth.RequireVenueOwner).Post("/api/v1/venues", venueTransport.CreateVenue)
+	protected.With(auth.RequireVenueOwner).Post("/api/v1/venues", venueTransport.CreateVenue)
 	r.Get("/api/v1/venues", venueTransport.GetVenues)
 	r.Get("/api/v1/venues/{venue_id}", venueTransport.GetVenue)
 
 	// --------------------------------------------------------------------------
+
 	// ----------------------------- Sessions -----------------------------------
 	sessionTransport := session_transport.NewHTTPSessionTransport(session_service.NewSessionService(session_repository.NewSessionRepository(pool)))
-	r.With(auth.RequireOrganizer).Post("/api/v1/organizer/events/{event_id}/sessions", sessionTransport.CreateSession)
-	r.With(auth.RequireOrganizer).Get("/api/v1/organizer/events/{event_id}/sessions", sessionTransport.GetSessions)
-	r.With(auth.RequireOrganizer).Get("/api/v1/organizer/events/{event_id}/sessions/{session_id}", sessionTransport.GetSession)
-	r.With(auth.RequireOrganizer).Patch("/api/v1/organizer/events/{event_id}/sessions/{session_id}", sessionTransport.UpdateSession)
+	organizerProtected.Post("/api/v1/organizer/events/{event_id}/sessions", sessionTransport.CreateSession)
+	organizerProtected.Get("/api/v1/organizer/events/{event_id}/sessions", sessionTransport.GetSessions)
+	organizerProtected.Get("/api/v1/organizer/events/{event_id}/sessions/{session_id}", sessionTransport.GetSession)
+	organizerProtected.Patch("/api/v1/organizer/events/{event_id}/sessions/{session_id}", sessionTransport.UpdateSession)
 
 	// --------------------------------------------------------------------------
 	server := &http.Server{Addr: address, Handler: r, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second}

@@ -59,7 +59,8 @@ func New(t *testing.T) *Fixture {
 			}
 		}
 	})
-	f.Exec(t, `INSERT INTO users(id,email) VALUES($1,$2),($3,$4)`, f.UserID, f.UserID.String()+"@test.invalid", f.OtherUserID, f.OtherUserID.String()+"@test.invalid")
+	// These fixtures exercise catalog access, not password login.
+	f.Exec(t, `INSERT INTO users(id,email,password_hash) VALUES($1,$2,'unused-test-hash'),($3,$4,'unused-test-hash')`, f.UserID, f.UserID.String()+"@test.invalid", f.OtherUserID, f.OtherUserID.String()+"@test.invalid")
 	f.Exec(t, `INSERT INTO organizers(id,name) VALUES($1,'Test organizer'),($2,'Other organizer')`, f.OrgID, f.OtherOrgID)
 	// A user can operate two organizations: all queries must also scope organizer_id.
 	f.Exec(t, `INSERT INTO organizer_memberships(organizer_id,user_id,role) VALUES($1,$3,'organizer'),($2,$3,'organizer')`, f.OrgID, f.OtherOrgID, f.UserID)
