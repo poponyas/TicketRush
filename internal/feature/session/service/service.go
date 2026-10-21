@@ -35,6 +35,10 @@ type SessionRepository interface {
 	GetSession(ctx context.Context, eventID, sessionID, organizerID, userID uuid.UUID) (domain.Session, error)
 	GetSessions(ctx context.Context, eventID, organizerID, userID uuid.UUID, limit, offset int) ([]domain.Session, error)
 	UpdateSession(ctx context.Context, session, expected domain.Session, organizerID uuid.UUID, userID uuid.UUID) (domain.Session, error)
+	PublishSession(
+		ctx context.Context,
+		eventID, sessionID, organizerID, userID uuid.UUID,
+	) (domain.Session, error)
 }
 
 type SessionsPage struct {

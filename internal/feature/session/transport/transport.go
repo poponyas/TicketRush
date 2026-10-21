@@ -22,6 +22,10 @@ type SessionService interface {
 	GetSession(ctx context.Context, eventID, sessionID, organizerID, userID uuid.UUID) (domain.Session, error)
 	GetSessions(ctx context.Context, eventID, organizerID, userID uuid.UUID, limit, offset *int) (service.SessionsPage, error)
 	UpdateSession(ctx context.Context, input service.UpdateSessionInput, eventID, sessionID, organizerID, userID uuid.UUID) (domain.Session, error)
+	PublishSession(
+		ctx context.Context,
+		eventID, sessionID, organizerID, userID uuid.UUID,
+	) (domain.Session, error)
 }
 
 func NewHTTPSessionTransport(

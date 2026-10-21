@@ -14,10 +14,11 @@ import (
 )
 
 type sessionRepoStub struct {
-	update func(context.Context, domain.Session, domain.Session, uuid.UUID, uuid.UUID) (domain.Session, error)
-	create func(context.Context, domain.Session, uuid.UUID, uuid.UUID) (domain.Session, error)
-	get    func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID) (domain.Session, error)
-	list   func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, int, int) ([]domain.Session, error)
+	publish func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID) (domain.Session, error)
+	update  func(context.Context, domain.Session, domain.Session, uuid.UUID, uuid.UUID) (domain.Session, error)
+	create  func(context.Context, domain.Session, uuid.UUID, uuid.UUID) (domain.Session, error)
+	get     func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID) (domain.Session, error)
+	list    func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, int, int) ([]domain.Session, error)
 }
 
 func (r *sessionRepoStub) GetSession(ctx context.Context, event, session, org, user uuid.UUID) (domain.Session, error) {
@@ -87,4 +88,11 @@ func TestCreateSessionService(t *testing.T) {
 
 func (r *sessionRepoStub) UpdateSession(ctx context.Context, updated, expected domain.Session, org, user uuid.UUID) (domain.Session, error) {
 	return r.update(ctx, updated, expected, org, user)
+}
+
+func (r *sessionRepoStub) PublishSession(ctx context.Context, event, session, org, user uuid.UUID) (domain.Session, error) {
+	if r.publish == nil {
+		panic("unexpected call to sessionRepoStub.PublishSession")
+	}
+	return r.publish(ctx, event, session, org, user)
 }
