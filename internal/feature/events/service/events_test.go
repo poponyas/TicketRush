@@ -185,3 +185,7 @@ func TestRepositoryErrorsArePreserved(t *testing.T) {
 		require.ErrorIs(t, err, expected)
 	}
 }
+
+func (r *repositoryStub) PublishEvent(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (domain.Event, error) {
+	panic("unexpected PublishEvent call")
+}
