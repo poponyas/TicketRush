@@ -29,6 +29,9 @@ import (
 	auth_repository "github.com/poponyas/TicketRush/internal/feature/identity/repository"
 	auth_service "github.com/poponyas/TicketRush/internal/feature/identity/service"
 	auth_http_transport "github.com/poponyas/TicketRush/internal/feature/identity/transport"
+	ticket_type_repository "github.com/poponyas/TicketRush/internal/feature/rate/repository"
+	ticket_type_service "github.com/poponyas/TicketRush/internal/feature/rate/service"
+	ticket_type_transport "github.com/poponyas/TicketRush/internal/feature/rate/transport"
 	session_repository "github.com/poponyas/TicketRush/internal/feature/session/repository"
 	session_service "github.com/poponyas/TicketRush/internal/feature/session/service"
 	session_transport "github.com/poponyas/TicketRush/internal/feature/session/transport"
@@ -215,6 +218,14 @@ func run(ctx context.Context) error {
 	organizerProtected.Patch("/api/v1/organizer/events/{event_id}/sessions/{session_id}", sessionTransport.UpdateSession)
 
 	// --------------------------------------------------------------------------
+
+	//  ----------------------------- Rate -------------------------------------
+	rateTransport := ticket_type_transport.NewTicketTypeService(ticket_type_service.NewTicketTypeService(ticket_type_repository.NewTicketTypePool(pool)))
+	organizerProtected.Post("/api/v1/organizer/events/{event_id}/sessions/{session_id}/ticket-types", rateTransport.CreateTicketType)
+	organizerProtected.Get("/api/v1/organizer/events/{event_id}/sessions/{session_id}/ticket-types/{ticket_type_id}", rateTransport.GetTicketType)
+	organizerProtected.Get("/api/v1/organizer/events/{event_id}/sessions/{session_id}/ticket-types", rateTransport.GetTicketTypes)
+	// --------------------------------------------------------------------------
+
 	server := &http.Server{Addr: address, Handler: r, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second}
 	serveErrors := make(chan error, 1)
 	go func() { serveErrors <- server.ListenAndServe() }()
