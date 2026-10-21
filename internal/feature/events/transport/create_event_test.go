@@ -118,3 +118,11 @@ func TestCreateEventDoesNotLeakInternalErrors(t *testing.T) {
 func (r *stubService) PublishEvent(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (domain.Event, error) {
 	panic("unexpected PublishEvent call")
 }
+
+func (s *stubService) GetPublicEvents(context.Context, *int, *int) (service.EventsPage, error) {
+	panic("unexpected GetPublicEvents call")
+}
+
+func (r *stubService) GetPublicEvent(context.Context, uuid.UUID) (domain.Event, error) {
+	panic("unexpected GetPublicEvent call")
+}

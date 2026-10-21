@@ -14,11 +14,13 @@ import (
 )
 
 type sessionRepoStub struct {
-	publish func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID) (domain.Session, error)
-	update  func(context.Context, domain.Session, domain.Session, uuid.UUID, uuid.UUID) (domain.Session, error)
-	create  func(context.Context, domain.Session, uuid.UUID, uuid.UUID) (domain.Session, error)
-	get     func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID) (domain.Session, error)
-	list    func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, int, int) ([]domain.Session, error)
+	publicGet  func(context.Context, uuid.UUID, uuid.UUID) (domain.Session, error)
+	publicList func(context.Context, uuid.UUID, int, int) ([]domain.Session, error)
+	publish    func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID) (domain.Session, error)
+	update     func(context.Context, domain.Session, domain.Session, uuid.UUID, uuid.UUID) (domain.Session, error)
+	create     func(context.Context, domain.Session, uuid.UUID, uuid.UUID) (domain.Session, error)
+	get        func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID) (domain.Session, error)
+	list       func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, int, int) ([]domain.Session, error)
 }
 
 func (r *sessionRepoStub) GetSession(ctx context.Context, event, session, org, user uuid.UUID) (domain.Session, error) {
@@ -95,4 +97,17 @@ func (r *sessionRepoStub) PublishSession(ctx context.Context, event, session, or
 		panic("unexpected call to sessionRepoStub.PublishSession")
 	}
 	return r.publish(ctx, event, session, org, user)
+}
+
+func (r *sessionRepoStub) GetPublicSession(ctx context.Context, event, session uuid.UUID) (domain.Session, error) {
+	if r.publicGet == nil {
+		panic("unexpected GetPublicSession call")
+	}
+	return r.publicGet(ctx, event, session)
+}
+func (r *sessionRepoStub) GetPublicSessions(ctx context.Context, event uuid.UUID, limit, offset int) ([]domain.Session, error) {
+	if r.publicList == nil {
+		panic("unexpected GetPublicSessions call")
+	}
+	return r.publicList(ctx, event, limit, offset)
 }
