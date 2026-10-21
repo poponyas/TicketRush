@@ -114,3 +114,7 @@ func TestCreateEventDoesNotLeakInternalErrors(t *testing.T) {
 	require.NotContains(t, w.Body.String(), "secret")
 	require.NotContains(t, w.Body.String(), "postgres")
 }
+
+func (r *stubService) PublishEvent(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (domain.Event, error) {
+	panic("unexpected PublishEvent call")
+}

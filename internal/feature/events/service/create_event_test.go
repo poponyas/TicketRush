@@ -68,3 +68,7 @@ func TestInvalidEventDoesNotReachRepository(t *testing.T) {
 	_, err := s.CreateEvent(context.Background(), service.CreateEventInput{UserID: uuid.New(), OrganizerID: uuid.New(), Title: strings.Repeat("я", 200)})
 	require.NoError(t, err)
 }
+
+func (r *recordingRepo) PublishEvent(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (domain.Event, error) {
+	panic("unexpected PublishEvent call")
+}

@@ -33,6 +33,7 @@ type EventsRepository interface {
 	GetEvents(ctx context.Context, limit int, offset int, organizerID uuid.UUID, userID uuid.UUID) ([]domain.Event, error)
 	UpdateEvent(ctx context.Context, event domain.Event, userID uuid.UUID) (domain.Event, error)
 	DeleteEvent(ctx context.Context, eventID uuid.UUID, organizerID uuid.UUID, userID uuid.UUID) error
+	PublishEvent(ctx context.Context, eventID uuid.UUID, organizerID uuid.UUID, userID uuid.UUID) (domain.Event, error)
 }
 
 func NewEventsService(repo EventsRepository) *EventsService {

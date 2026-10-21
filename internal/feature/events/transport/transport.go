@@ -15,6 +15,7 @@ type EventsService interface {
 	GetEvents(ctx context.Context, limit *int, offset *int, organizerID uuid.UUID, userID uuid.UUID) (service.EventsPage, error)
 	UpdateEvent(ctx context.Context, input service.UpdateEventInput, eventID uuid.UUID, organizerID uuid.UUID, userID uuid.UUID) (domain.Event, error)
 	DeleteEvent(ctx context.Context, eventID uuid.UUID, organizerID uuid.UUID, userID uuid.UUID) error
+	PublishEvent(ctx context.Context, eventID uuid.UUID, organizerID uuid.UUID, userID uuid.UUID) (domain.Event, error)
 }
 
 func NewEventsHTTPTransport(service EventsService) *EventsHTTPTransport {

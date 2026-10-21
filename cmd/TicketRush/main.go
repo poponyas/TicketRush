@@ -181,6 +181,7 @@ func run(ctx context.Context) error {
 	//  ----------------------------- EVENTS -------------------------------------
 	eventTransport := transport.NewEventsHTTPTransport(service.NewEventsService(repository.NewEventsRepo(pool)))
 	organizerProtected.Post("/api/v1/organizer/events", eventTransport.CreateEvent)
+	organizerProtected.Post("/api/v1/organizer/events/{event_id}/publish", eventTransport.PublishEvent)
 	organizerProtected.
 		Get("/api/v1/organizer/events/{event_id}", eventTransport.GetEvent)
 	organizerProtected.
