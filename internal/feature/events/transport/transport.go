@@ -10,12 +10,17 @@ import (
 
 type EventsHTTPTransport struct{ eventService EventsService }
 type EventsService interface {
+	GetPublicEvent(ctx context.Context, eventID uuid.UUID) (domain.Event, error)
 	CreateEvent(ctx context.Context, input service.CreateEventInput) (domain.Event, error)
 	GetEvent(ctx context.Context, id uuid.UUID, organizerID uuid.UUID, userID uuid.UUID) (domain.Event, error)
 	GetEvents(ctx context.Context, limit *int, offset *int, organizerID uuid.UUID, userID uuid.UUID) (service.EventsPage, error)
 	UpdateEvent(ctx context.Context, input service.UpdateEventInput, eventID uuid.UUID, organizerID uuid.UUID, userID uuid.UUID) (domain.Event, error)
 	DeleteEvent(ctx context.Context, eventID uuid.UUID, organizerID uuid.UUID, userID uuid.UUID) error
 	PublishEvent(ctx context.Context, eventID uuid.UUID, organizerID uuid.UUID, userID uuid.UUID) (domain.Event, error)
+	GetPublicEvents(
+		ctx context.Context,
+		limit, offset *int,
+	) (service.EventsPage, error)
 }
 
 func NewEventsHTTPTransport(service EventsService) *EventsHTTPTransport {

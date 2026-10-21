@@ -27,6 +27,9 @@ type UpdateSessionInput struct {
 }
 
 type SessionRepository interface {
+	GetPublicSession(ctx context.Context, eventID, sessionID uuid.UUID) (domain.Session, error)
+	GetPublicSessions(ctx context.Context, eventID uuid.UUID, limit, offset int) ([]domain.Session, error)
+
 	CreateSession(ctx context.Context,
 		session domain.Session,
 		organizerID uuid.UUID,

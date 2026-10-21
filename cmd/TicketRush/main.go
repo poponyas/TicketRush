@@ -180,6 +180,7 @@ func run(ctx context.Context) error {
 
 	//  ----------------------------- EVENTS -------------------------------------
 	eventTransport := transport.NewEventsHTTPTransport(service.NewEventsService(repository.NewEventsRepo(pool)))
+	// Private
 	organizerProtected.Post("/api/v1/organizer/events", eventTransport.CreateEvent)
 	organizerProtected.Post("/api/v1/organizer/events/{event_id}/publish", eventTransport.PublishEvent)
 	organizerProtected.
@@ -190,6 +191,9 @@ func run(ctx context.Context) error {
 		Patch("/api/v1/organizer/events/{event_id}", eventTransport.UpdateEvent)
 	organizerProtected.
 		Delete("/api/v1/organizer/events/{event_id}", eventTransport.DeleteEvent)
+	// Public
+	r.Get("/api/v1/events", eventTransport.GetPublicEvents)
+	r.Get("/api/v1/events/{event_id}", eventTransport.GetPublicEvent)
 	r.Get("/livez", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
 	r.Get("/readyz", func(w http.ResponseWriter, r *http.Request) {
 		pingCtx, cancel := context.WithTimeout(r.Context(), time.Second)
@@ -218,6 +222,8 @@ func run(ctx context.Context) error {
 	organizerProtected.Get("/api/v1/organizer/events/{event_id}/sessions/{session_id}", sessionTransport.GetSession)
 	organizerProtected.Patch("/api/v1/organizer/events/{event_id}/sessions/{session_id}", sessionTransport.UpdateSession)
 	organizerProtected.Post("/api/v1/organizer/events/{event_id}/sessions/{session_id}/publish", sessionTransport.PublishSession)
+	r.Get("/api/v1/events/{event_id}/sessions", sessionTransport.GetPublicSessions)
+	r.Get("/api/v1/events/{event_id}/sessions/{session_id}", sessionTransport.GetPublicSession)
 
 	// --------------------------------------------------------------------------
 
@@ -226,6 +232,8 @@ func run(ctx context.Context) error {
 	organizerProtected.Post("/api/v1/organizer/events/{event_id}/sessions/{session_id}/ticket-types", rateTransport.CreateTicketType)
 	organizerProtected.Get("/api/v1/organizer/events/{event_id}/sessions/{session_id}/ticket-types/{ticket_type_id}", rateTransport.GetTicketType)
 	organizerProtected.Get("/api/v1/organizer/events/{event_id}/sessions/{session_id}/ticket-types", rateTransport.GetTicketTypes)
+	r.Get("/api/v1/events/{event_id}/sessions/{session_id}/ticket-types", rateTransport.GetPublicTicketTypes)
+	r.Get("/api/v1/events/{event_id}/sessions/{session_id}/ticket-types/{ticket_type_id}", rateTransport.GetPublicTicketType)
 	// --------------------------------------------------------------------------
 
 	server := &http.Server{Addr: address, Handler: r, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second}

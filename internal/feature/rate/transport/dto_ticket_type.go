@@ -48,3 +48,9 @@ func domainToTicketTypesResponse(
 	}
 	return ticketTypes
 }
+
+type TicketTypesListResponse struct {
+	Items  TicketTypesResponse `json:"items"`
+	Limit  int                 `json:"limit"`
+	Offset int                 `json:"offset"`
+}

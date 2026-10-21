@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/poponyas/TicketRush/internal/core/domain"
+	service "github.com/poponyas/TicketRush/internal/feature/rate/service"
 )
 
 type HTTPTicketType struct {
@@ -12,6 +13,9 @@ type HTTPTicketType struct {
 }
 
 type TicketTypeService interface {
+	GetPublicTicketType(ctx context.Context, eventID, sessionID, ticketTypeID uuid.UUID) (domain.TicketType, error)
+	GetPublicTicketTypes(ctx context.Context, eventID, sessionID uuid.UUID, limit, offset *int) (service.TicketTypesPage, error)
+
 	CreateTicketType(
 		ctx context.Context,
 		eventID uuid.UUID,

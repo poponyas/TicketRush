@@ -13,6 +13,9 @@ type HTTPSessionTransport struct {
 }
 
 type SessionService interface {
+	GetPublicSession(ctx context.Context, eventID, sessionID uuid.UUID) (domain.Session, error)
+	GetPublicSessions(ctx context.Context, eventID uuid.UUID, limit, offset *int) (service.SessionsPage, error)
+
 	CreateSession(ctx context.Context,
 		request service.CreateSessionInput,
 		organizerID uuid.UUID,

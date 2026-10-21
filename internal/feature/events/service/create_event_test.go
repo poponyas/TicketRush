@@ -72,3 +72,11 @@ func TestInvalidEventDoesNotReachRepository(t *testing.T) {
 func (r *recordingRepo) PublishEvent(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (domain.Event, error) {
 	panic("unexpected PublishEvent call")
 }
+
+func (r *recordingRepo) GetPublicEvents(context.Context, int, int) ([]domain.Event, error) {
+	panic("unexpected GetPublicEvents call")
+}
+
+func (r *recordingRepo) GetPublicEvent(context.Context, uuid.UUID) (domain.Event, error) {
+	panic("unexpected GetPublicEvent call")
+}

@@ -12,6 +12,9 @@ type TicketTypeService struct {
 }
 
 type TicketTypeRepo interface {
+	GetPublicTicketType(ctx context.Context, eventID, sessionID, ticketTypeID uuid.UUID) (domain.TicketType, error)
+	GetPublicTicketTypes(ctx context.Context, eventID, sessionID uuid.UUID, limit, offset int) ([]domain.TicketType, error)
+
 	CreateTicketType(
 		ctx context.Context,
 		ticketType domain.TicketType,
@@ -44,4 +47,10 @@ func NewTicketTypeService(
 	return &TicketTypeService{
 		ticketTypeRepo: ticketTypeRepo,
 	}
+}
+
+type TicketTypesPage struct {
+	TicketTypes []domain.TicketType
+	Limit       int
+	Offset      int
 }

@@ -15,10 +15,12 @@ import (
 
 // Unexpected database calls fail the test: invalid input must stop in the service.
 type repositoryStub struct {
-	get    func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (domain.Event, error)
-	list   func(context.Context, int, int, uuid.UUID, uuid.UUID) ([]domain.Event, error)
-	update func(context.Context, domain.Event, uuid.UUID) (domain.Event, error)
-	delete func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) error
+	publicGet  func(context.Context, uuid.UUID) (domain.Event, error)
+	publicList func(context.Context, int, int) ([]domain.Event, error)
+	get        func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (domain.Event, error)
+	list       func(context.Context, int, int, uuid.UUID, uuid.UUID) ([]domain.Event, error)
+	update     func(context.Context, domain.Event, uuid.UUID) (domain.Event, error)
+	delete     func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) error
 }
 
 func (r *repositoryStub) CreateEvent(context.Context, domain.Event, uuid.UUID) (domain.Event, error) {
@@ -188,4 +190,18 @@ func TestRepositoryErrorsArePreserved(t *testing.T) {
 
 func (r *repositoryStub) PublishEvent(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (domain.Event, error) {
 	panic("unexpected PublishEvent call")
+}
+
+func (r *repositoryStub) GetPublicEvents(ctx context.Context, limit, offset int) ([]domain.Event, error) {
+	if r.publicList == nil {
+		panic("unexpected GetPublicEvents call")
+	}
+	return r.publicList(ctx, limit, offset)
+}
+
+func (r *repositoryStub) GetPublicEvent(ctx context.Context, id uuid.UUID) (domain.Event, error) {
+	if r.publicGet == nil {
+		panic("unexpected GetPublicEvent call")
+	}
+	return r.publicGet(ctx, id)
 }
