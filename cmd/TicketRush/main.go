@@ -216,6 +216,7 @@ func run(ctx context.Context) error {
 	organizerProtected.Get("/api/v1/organizer/events/{event_id}/sessions", sessionTransport.GetSessions)
 	organizerProtected.Get("/api/v1/organizer/events/{event_id}/sessions/{session_id}", sessionTransport.GetSession)
 	organizerProtected.Patch("/api/v1/organizer/events/{event_id}/sessions/{session_id}", sessionTransport.UpdateSession)
+	organizerProtected.Post("/api/v1/organizer/events/{event_id}/sessions/{session_id}/publish", sessionTransport.PublishSession)
 
 	// --------------------------------------------------------------------------
 
