@@ -1,8 +1,9 @@
 package domain
 
 import (
-	"github.com/google/uuid"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type BookingStatus string
@@ -21,4 +22,19 @@ type Booking struct {
 	Status    BookingStatus `db:"status"`
 	ExpiresAt time.Time     `db:"expires_at"`
 	CreatedAt time.Time     `db:"created_at"`
+}
+
+func NewBooking(
+	userID uuid.UUID,
+	sessionID uuid.UUID,
+) Booking {
+	id := uuid.New()
+	return Booking{
+		ID:        id,
+		UserID:    userID,
+		SessionID: sessionID,
+		Status:    BookingHeld,
+		ExpiresAt: time.Now().UTC().Add(15 * time.Minute),
+		CreatedAt: time.Now().UTC(),
+	}
 }
