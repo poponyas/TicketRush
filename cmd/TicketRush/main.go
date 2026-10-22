@@ -23,6 +23,10 @@ import (
 	postgres "github.com/poponyas/TicketRush/internal/core/repository/postgres"
 	core_auth_password "github.com/poponyas/TicketRush/internal/core/security/password"
 	auth_token "github.com/poponyas/TicketRush/internal/core/security/token"
+	booking_repository "github.com/poponyas/TicketRush/internal/feature/booking/repository"
+	booking_service "github.com/poponyas/TicketRush/internal/feature/booking/service"
+	booking_transport "github.com/poponyas/TicketRush/internal/feature/booking/transport"
+	booking_worker "github.com/poponyas/TicketRush/internal/feature/booking/worker"
 	repository "github.com/poponyas/TicketRush/internal/feature/events/repository"
 	service "github.com/poponyas/TicketRush/internal/feature/events/service"
 	transport "github.com/poponyas/TicketRush/internal/feature/events/transport"
@@ -236,7 +240,28 @@ func run(ctx context.Context) error {
 	r.Get("/api/v1/events/{event_id}/sessions/{session_id}/ticket-types/{ticket_type_id}", rateTransport.GetPublicTicketType)
 	// --------------------------------------------------------------------------
 
+	//  ----------------------------- Booking -------------------------------------
+	bookingRepo := booking_repository.NewBookingRepository(pool)
+	bookingService := booking_service.NewBookingService(bookingRepo)
+	bookingTransport := booking_transport.NewHTTPBookingTransport(bookingService)
+	protected.Post("/api/v1/events/{event_id}/sessions/{session_id}/bookings", bookingTransport.CreateBooking)
+	protected.Get("/api/v1/bookings/{booking_id}", bookingTransport.GetBooking)
+	protected.Post("/api/v1/bookings/{booking_id}/cancel", bookingTransport.CancelBooking)
+
 	server := &http.Server{Addr: address, Handler: r, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second}
+	expirationWorker, err := booking_worker.NewExpirationWorker(bookingService, log, booking_worker.DefaultExpirationConfig())
+	if err != nil {
+		return fmt.Errorf("initialize booking expiration: %w", err)
+	}
+	workerCtx, stopWorker := context.WithCancel(ctx)
+	workerDone := make(chan struct{})
+	go func() {
+		defer close(workerDone)
+		expirationWorker.Run(workerCtx)
+	}()
+	// Stop and join the worker before deferred pool and logger closure.
+	defer func() { stopWorker(); <-workerDone }()
+
 	serveErrors := make(chan error, 1)
 	go func() { serveErrors <- server.ListenAndServe() }()
 	log.Info("HTTP server starting", zap.String("address", address))
