@@ -2,11 +2,12 @@ package domain
 
 import (
 	"fmt"
-	"github.com/google/uuid"
-	coreerrors "github.com/poponyas/TicketRush/internal/core/errors"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/google/uuid"
+	coreerrors "github.com/poponyas/TicketRush/internal/core/errors"
 )
 
 type EventStatus string

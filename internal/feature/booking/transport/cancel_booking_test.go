@@ -44,7 +44,7 @@ func TestCancelBookingHTTP(t *testing.T) {
 				return domain.Booking{ID: id, SessionID: uuid.New(), Status: domain.BookingCancelled}, tc.err
 			}}
 			router := chi.NewRouter()
-			router.Post("/api/v1/bookings/{booking_id}/cancel", transport.NewHTTPBookingTransport(svc).CancelBooking)
+			router.Post("/api/v1/bookings/{booking_id}/cancel", transport.NewHTTPBookingTransport(svc, transport.NewBookingMetrics()).CancelBooking)
 			r := httptest.NewRequest(http.MethodPost, "/api/v1/bookings/"+id.String()+"/cancel?user_id="+uuid.New().String(), nil)
 			r = r.WithContext(auth.WithIdentity(r.Context(), auth.Identity{UserID: user, Roles: []domain.Role{domain.RoleBuyer}}))
 			w := httptest.NewRecorder()
@@ -75,7 +75,7 @@ func TestCancelBookingHTTPAuthenticationAndIDs(t *testing.T) {
 		{"not-a-uuid", &auth.Identity{UserID: uuid.New()}, 400},
 	} {
 		router := chi.NewRouter()
-		router.Post("/api/v1/bookings/{booking_id}/cancel", transport.NewHTTPBookingTransport(svc).CancelBooking)
+		router.Post("/api/v1/bookings/{booking_id}/cancel", transport.NewHTTPBookingTransport(svc, transport.NewBookingMetrics()).CancelBooking)
 		r := httptest.NewRequest(http.MethodPost, "/api/v1/bookings/"+tc.id+"/cancel", nil)
 		if tc.identity != nil {
 			r = r.WithContext(auth.WithIdentity(r.Context(), *tc.identity))
@@ -85,7 +85,7 @@ func TestCancelBookingHTTPAuthenticationAndIDs(t *testing.T) {
 		require.Equal(t, tc.code, w.Code)
 	}
 	router := chi.NewRouter()
-	router.Post("/api/v1/bookings/{booking_id}/cancel", transport.NewHTTPBookingTransport(service.NewBookingService(nil)).CancelBooking)
+	router.Post("/api/v1/bookings/{booking_id}/cancel", transport.NewHTTPBookingTransport(service.NewBookingService(nil), transport.NewBookingMetrics()).CancelBooking)
 	r := httptest.NewRequest(http.MethodPost, "/api/v1/bookings/"+uuid.Nil.String()+"/cancel", nil)
 	r = r.WithContext(auth.WithIdentity(r.Context(), auth.Identity{UserID: uuid.New()}))
 	w := httptest.NewRecorder()

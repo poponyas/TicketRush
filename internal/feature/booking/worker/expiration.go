@@ -26,9 +26,10 @@ type ExpirationWorker struct {
 	service ExpirationService
 	logger  *corelogger.Logger
 	config  ExpirationConfig
+	metrics *ExpirationMetrics
 }
 
-func NewExpirationWorker(service ExpirationService, logger *corelogger.Logger, config ExpirationConfig) (*ExpirationWorker, error) {
+func NewExpirationWorker(service ExpirationService, logger *corelogger.Logger, config ExpirationConfig, metrics *ExpirationMetrics) (*ExpirationWorker, error) {
 	if service == nil || logger == nil || logger.Logger == nil {
 		return nil, fmt.Errorf("expiration service and logger are required")
 	}
@@ -38,7 +39,16 @@ func NewExpirationWorker(service ExpirationService, logger *corelogger.Logger, c
 	if config.BatchSize < 1 || config.BatchSize > 1000 {
 		return nil, fmt.Errorf("expiration batch size must be between 1 and 1000")
 	}
-	return &ExpirationWorker{service: service, logger: logger.With(zap.String("component", "booking_expiration")), config: config}, nil
+
+	if metrics == nil {
+		return nil, fmt.Errorf("expiration metrics are required")
+	}
+	return &ExpirationWorker{
+		service: service,
+		logger:  logger.With(zap.String("component", "booking_expiration")),
+		config:  config,
+		metrics: metrics,
+	}, nil
 }
 
 // Run processes overdue bookings immediately, then polls on each tick. Calls
@@ -52,7 +62,20 @@ func (w *ExpirationWorker) Run(ctx context.Context) {
 			if ctx.Err() != nil {
 				return
 			}
+			startedAt := time.Now()
 			count, err := w.service.ExpireBookings(ctx, w.config.BatchSize)
+			duration := time.Since(startedAt).Seconds()
+
+			outcome := "success"
+			if err != nil {
+				outcome = "error"
+				if ctx.Err() != nil {
+					outcome = "cancelled"
+				}
+			}
+			w.metrics.Batches.WithLabelValues(outcome).Inc()
+			w.metrics.Duration.WithLabelValues(outcome).Observe(duration)
+
 			if err != nil {
 				if ctx.Err() != nil {
 					return
@@ -60,6 +83,8 @@ func (w *ExpirationWorker) Run(ctx context.Context) {
 				w.logger.Error("expire bookings", zap.Error(err))
 				break // Retry on the next tick, without spinning on a persistent failure.
 			}
+			w.metrics.ExpiredBookings.Add(float64(count))
+			w.metrics.LastSuccess.SetToCurrentTime()
 			if count > 0 {
 				w.logger.Info("expired bookings", zap.Int("count", count))
 			}

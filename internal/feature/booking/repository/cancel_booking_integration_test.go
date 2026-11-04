@@ -177,7 +177,7 @@ func TestCancelOwnBookingHTTPPostgres(t *testing.T) {
 	f := newBookingFixture(t, 5)
 	b := heldBooking(t, f, 2)
 	router := chi.NewRouter()
-	router.Post("/api/v1/bookings/{booking_id}/cancel", transport.NewHTTPBookingTransport(service.NewBookingService(f.repo)).CancelBooking)
+	router.Post("/api/v1/bookings/{booking_id}/cancel", transport.NewHTTPBookingTransport(service.NewBookingService(f.repo), transport.NewBookingMetrics()).CancelBooking)
 	for _, tc := range []struct {
 		name string
 		user uuid.UUID

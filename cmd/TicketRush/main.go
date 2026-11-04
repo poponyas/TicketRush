@@ -20,9 +20,11 @@ import (
 	"github.com/poponyas/TicketRush/internal/core/auth"
 	"github.com/poponyas/TicketRush/internal/core/domain"
 	corelogger "github.com/poponyas/TicketRush/internal/core/logger"
+	core_metrics "github.com/poponyas/TicketRush/internal/core/metrics"
 	postgres "github.com/poponyas/TicketRush/internal/core/repository/postgres"
 	core_auth_password "github.com/poponyas/TicketRush/internal/core/security/password"
 	auth_token "github.com/poponyas/TicketRush/internal/core/security/token"
+	core_tracing "github.com/poponyas/TicketRush/internal/core/tracing"
 	booking_repository "github.com/poponyas/TicketRush/internal/feature/booking/repository"
 	booking_service "github.com/poponyas/TicketRush/internal/feature/booking/service"
 	booking_transport "github.com/poponyas/TicketRush/internal/feature/booking/transport"
@@ -42,6 +44,9 @@ import (
 	venue_repository "github.com/poponyas/TicketRush/internal/feature/venue/repository"
 	venue_service "github.com/poponyas/TicketRush/internal/feature/venue/service"
 	venue_http_tranpsort "github.com/poponyas/TicketRush/internal/feature/venue/tranpsort"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 )
 
@@ -87,6 +92,23 @@ func run(ctx context.Context) error {
 			fmt.Fprintln(os.Stderr, "close logger:", err)
 		}
 	}()
+
+	tracerProvider, err := core_tracing.NewTracerProvider(ctx)
+	if err != nil {
+		return fmt.Errorf("initialize tracing: %w", err)
+	}
+
+	otel.SetTracerProvider(tracerProvider)
+
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := tracerProvider.Shutdown(shutdownCtx); err != nil {
+			log.Error("shutdown tracing", zap.Error(err))
+		}
+	}()
+
 	dbConfig, err := postgres.NewConfig()
 	if err != nil {
 		return err
@@ -107,6 +129,7 @@ func run(ctx context.Context) error {
 			return fmt.Errorf("parse DEV_AUTH_ENABLED: %w", err)
 		}
 	}
+
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(func(next http.Handler) http.Handler {
@@ -117,6 +140,16 @@ func run(ctx context.Context) error {
 			next.ServeHTTP(w, req.WithContext(corelogger.ToContext(req.Context(), requestLog)))
 		})
 	})
+
+	registry := prometheus.NewRegistry()
+
+	metrics := core_metrics.NewHTTPMetrics()
+	registry.MustRegister(
+		metrics.Requests,
+		metrics.Duration,
+	)
+
+	r.Use(metrics.Middleware)
 	r.Use(middleware.Recoverer)
 	if devEnabled {
 		host, _, err := net.SplitHostPort(address)
@@ -241,15 +274,35 @@ func run(ctx context.Context) error {
 	// --------------------------------------------------------------------------
 
 	//  ----------------------------- Booking -------------------------------------
+
+	bookingMetrics := booking_transport.NewBookingMetrics()
+	registry.MustRegister(
+		bookingMetrics.Attempts,
+		bookingMetrics.Duration,
+	)
+
+	workerMetrics := booking_worker.NewExpirationMetrics()
+	registry.MustRegister(
+		workerMetrics.Batches,
+		workerMetrics.ExpiredBookings,
+		workerMetrics.Duration,
+		workerMetrics.LastSuccess,
+	)
+
 	bookingRepo := booking_repository.NewBookingRepository(pool)
 	bookingService := booking_service.NewBookingService(bookingRepo)
-	bookingTransport := booking_transport.NewHTTPBookingTransport(bookingService)
+	bookingTransport := booking_transport.NewHTTPBookingTransport(
+		bookingService,
+		bookingMetrics,
+	)
+
+	r.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 	protected.Post("/api/v1/events/{event_id}/sessions/{session_id}/bookings", bookingTransport.CreateBooking)
 	protected.Get("/api/v1/bookings/{booking_id}", bookingTransport.GetBooking)
 	protected.Post("/api/v1/bookings/{booking_id}/cancel", bookingTransport.CancelBooking)
 
 	server := &http.Server{Addr: address, Handler: r, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second}
-	expirationWorker, err := booking_worker.NewExpirationWorker(bookingService, log, booking_worker.DefaultExpirationConfig())
+	expirationWorker, err := booking_worker.NewExpirationWorker(bookingService, log, booking_worker.DefaultExpirationConfig(), workerMetrics)
 	if err != nil {
 		return fmt.Errorf("initialize booking expiration: %w", err)
 	}

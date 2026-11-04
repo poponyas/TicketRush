@@ -20,7 +20,7 @@ func (f expirerFunc) ExpireBookings(ctx context.Context, limit int) (int, error)
 
 func newWorker(t *testing.T, f expirerFunc, interval time.Duration, batch int) *worker.ExpirationWorker {
 	t.Helper()
-	w, err := worker.NewExpirationWorker(f, corelogger.FromContext(context.Background()), worker.ExpirationConfig{Interval: interval, BatchSize: batch})
+	w, err := worker.NewExpirationWorker(f, corelogger.FromContext(context.Background()), worker.ExpirationConfig{Interval: interval, BatchSize: batch}, worker.NewExpirationMetrics())
 	require.NoError(t, err)
 	return w
 }
@@ -127,11 +127,13 @@ func TestExpirationWorkerConfiguration(t *testing.T) {
 		{Interval: 0, BatchSize: 100}, {Interval: -time.Second, BatchSize: 100},
 		{Interval: time.Second, BatchSize: 0}, {Interval: time.Second, BatchSize: 1001},
 	} {
-		_, err := worker.NewExpirationWorker(f, log, cfg)
+		_, err := worker.NewExpirationWorker(f, log, cfg, worker.NewExpirationMetrics())
 		require.Error(t, err)
 	}
-	_, err := worker.NewExpirationWorker(nil, log, worker.DefaultExpirationConfig())
+	_, err := worker.NewExpirationWorker(nil, log, worker.DefaultExpirationConfig(), worker.NewExpirationMetrics())
 	require.Error(t, err)
-	_, err = worker.NewExpirationWorker(f, nil, worker.DefaultExpirationConfig())
+	_, err = worker.NewExpirationWorker(f, nil, worker.DefaultExpirationConfig(), worker.NewExpirationMetrics())
+	require.Error(t, err)
+	_, err = worker.NewExpirationWorker(f, log, worker.DefaultExpirationConfig(), nil)
 	require.Error(t, err)
 }

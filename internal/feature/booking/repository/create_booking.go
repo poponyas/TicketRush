@@ -11,6 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/poponyas/TicketRush/internal/core/domain"
 	coreerrors "github.com/poponyas/TicketRush/internal/core/errors"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
 )
 
 func (r *BookingRepository) CreateBooking(
@@ -19,6 +21,9 @@ func (r *BookingRepository) CreateBooking(
 	eventID, ticketTypeID uuid.UUID,
 	quantity int,
 ) (domain.Booking, error) {
+	ctx, span := otel.Tracer("ticketrush/booking").
+		Start(ctx, "booking.repository.create")
+	defer span.End()
 	if quantity < 1 || quantity > 1<<31-1 {
 		return domain.Booking{}, fmt.Errorf("quantity must be a positive PostgreSQL integer: %w", coreerrors.ErrInvalidArgument)
 	}
@@ -61,15 +66,23 @@ func (r *BookingRepository) CreateBooking(
 	if sessionStatus != domain.SessionScheduled {
 		return domain.Booking{}, fmt.Errorf("session is not scheduled: %w", coreerrors.ErrNotFound)
 	}
+	lockCtx, lockSpan := otel.Tracer("ticketrush/booking").Start(ctx, "booking.db.lock_ticket_type")
 
 	const tariffQuery = `SELECT id FROM ticket_types WHERE id=$1 AND session_id=$2 FOR UPDATE`
 	var lockedID uuid.UUID
-	if err := tx.QueryRow(ctx, tariffQuery, ticketTypeID, booking.SessionID).Scan(&lockedID); err != nil {
+	if err := tx.QueryRow(lockCtx, tariffQuery, ticketTypeID, booking.SessionID).Scan(&lockedID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			lockSpan.End()
+
 			return domain.Booking{}, coreerrors.ErrNotFound
 		}
+		lockSpan.RecordError(err)
+		lockSpan.SetStatus(codes.Error, "lock ticket type failed")
+		lockSpan.End()
+
 		return domain.Booking{}, fmt.Errorf("lock booking ticket type: %w", err)
 	}
+	lockSpan.End()
 
 	const reserveQuery = `
   UPDATE ticket_types

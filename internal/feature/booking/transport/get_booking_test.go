@@ -52,7 +52,7 @@ func TestGetBookingHTTP(t *testing.T) {
 				return domain.Booking{ID: id, SessionID: uuid.New(), Status: domain.BookingHeld}, []domain.BookingItem{{TicketTypeID: tariff, Quantity: 2, UnitPrice: price}}, tc.err
 			}}
 			router := chi.NewRouter()
-			router.Get("/api/v1/bookings/{booking_id}", transport.NewHTTPBookingTransport(svc).GetBooking)
+			router.Get("/api/v1/bookings/{booking_id}", transport.NewHTTPBookingTransport(svc, transport.NewBookingMetrics()).GetBooking)
 			r := httptest.NewRequest(http.MethodGet, "/api/v1/bookings/"+id.String()+"?user_id="+uuid.New().String(), nil)
 			r = r.WithContext(auth.WithIdentity(r.Context(), auth.Identity{UserID: user, Roles: []domain.Role{domain.RoleBuyer}}))
 			w := httptest.NewRecorder()
@@ -86,7 +86,7 @@ func TestGetBookingHTTPAuthenticationAndIDs(t *testing.T) {
 		{"bad-uuid", &auth.Identity{UserID: uuid.New()}, 400},
 	} {
 		router := chi.NewRouter()
-		router.Get("/api/v1/bookings/{booking_id}", transport.NewHTTPBookingTransport(svc).GetBooking)
+		router.Get("/api/v1/bookings/{booking_id}", transport.NewHTTPBookingTransport(svc, transport.NewBookingMetrics()).GetBooking)
 		r := httptest.NewRequest(http.MethodGet, "/api/v1/bookings/"+tc.path, nil)
 		if tc.identity != nil {
 			r = r.WithContext(auth.WithIdentity(r.Context(), *tc.identity))
@@ -121,7 +121,7 @@ func TestCreateBookingHTTPBuyerAndErrors(t *testing.T) {
 				return domain.Booking{ID: uuid.New(), SessionID: session, Status: domain.BookingHeld}, tc.serviceErr
 			}}
 			router := chi.NewRouter()
-			router.Post("/api/v1/events/{event_id}/sessions/{session_id}/bookings", transport.NewHTTPBookingTransport(svc).CreateBooking)
+			router.Post("/api/v1/events/{event_id}/sessions/{session_id}/bookings", transport.NewHTTPBookingTransport(svc, transport.NewBookingMetrics()).CreateBooking)
 			r := httptest.NewRequest(http.MethodPost, "/api/v1/events/"+event.String()+"/sessions/"+session.String()+"/bookings", strings.NewReader(tc.body))
 			r.Header.Set("Content-Type", tc.contentType)
 			r = r.WithContext(auth.WithIdentity(r.Context(), auth.Identity{UserID: user, Roles: []domain.Role{domain.RoleBuyer}}))

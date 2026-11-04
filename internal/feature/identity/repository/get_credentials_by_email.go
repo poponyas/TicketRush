@@ -17,7 +17,7 @@ func (r *AuthRepository) GetCredentialsByEmail(ctx context.Context, email string
 	query := `
 	SELECT id, email, password_hash
 	FROM users
-	WHERE email = $1;
+	WHERE email = $1 AND password_hash IS NOT NULL;
 	`
 
 	var id uuid.UUID

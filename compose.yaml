@@ -31,5 +31,37 @@ services:
       - "${MIGRATE_DATABASE_URL:-postgres://${POSTGRES_USER:-ticketrush}:${POSTGRES_PASSWORD:-ticketrush_dev}@postgres:5432/${POSTGRES_DB:-ticketrush}?sslmode=disable}"
     command: ["up"]
 
+
+  jaeger:
+    image: cr.jaegertracing.io/jaegertracing/jaeger:2.22.0
+    ports:
+      - "127.0.0.1:16686:16686"
+      - "127.0.0.1:4318:4318"
+
+  prometheus:
+    image: prom/prometheus:v3.14.0
+    network_mode: host
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.listen-address=127.0.0.1:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana:13.2.2
+    network_mode: host
+    environment:
+      GF_SERVER_HTTP_ADDR: "127.0.0.1"
+      GF_SERVER_HTTP_PORT: "3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./observability/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./observability/grafana/dashboard:/var/lib/grafana/dashboards:ro
+
 volumes:
   postgres_data:
+  prometheus_data:
+  grafana_data:

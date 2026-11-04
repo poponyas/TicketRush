@@ -1,7 +1,9 @@
 BEGIN;
 
+-- Existing users may predate password login or use an external identity.
+-- Leave them without a password rather than inventing shared credentials.
 ALTER TABLE users
-    ADD COLUMN password_hash TEXT NOT NULL;
+    ADD COLUMN password_hash TEXT;
 
 CREATE TABLE auth_sessions (
     id UUID PRIMARY KEY,

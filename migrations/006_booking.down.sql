@@ -1,5 +1,15 @@
 BEGIN;
 
+-- The old schema cannot preserve priced items or session-based bookings.
+LOCK TABLE booking, booking_item IN ACCESS EXCLUSIVE MODE;
+DO $guard$
+BEGIN
+    IF EXISTS (SELECT 1 FROM booking) OR EXISTS (SELECT 1 FROM booking_item) THEN
+        RAISE EXCEPTION 'Cannot rollback booking model: current bookings contain data. Migrate those records explicitly before reverting migration 006.';
+    END IF;
+END
+$guard$;
+
 DROP TABLE booking_item;
 DROP TABLE booking;
 
