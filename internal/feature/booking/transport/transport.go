@@ -10,6 +10,7 @@ import (
 
 type HTTPBookingTransport struct {
 	bookingService BookingService
+	metrics        *BookingMetrics
 }
 
 type BookingService interface {
@@ -18,6 +19,12 @@ type BookingService interface {
 	GetBooking(ctx context.Context, bookingID uuid.UUID, userID uuid.UUID) (domain.Booking, []domain.BookingItem, error)
 }
 
-func NewHTTPBookingTransport(bookingService BookingService) *HTTPBookingTransport {
-	return &HTTPBookingTransport{bookingService: bookingService}
+func NewHTTPBookingTransport(
+	bookingService BookingService,
+	metrics *BookingMetrics,
+) *HTTPBookingTransport {
+	return &HTTPBookingTransport{
+		bookingService: bookingService,
+		metrics:        metrics,
+	}
 }

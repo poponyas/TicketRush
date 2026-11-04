@@ -45,6 +45,7 @@ func (r *BookingRepository) CancelBooking(ctx context.Context, bookingID, userID
 		}
 		return booking, nil
 	}
+
 	if booking.Status != domain.BookingHeld {
 		return domain.Booking{}, fmt.Errorf("only held bookings can be cancelled: %w", coreerrors.ErrConflict)
 	}

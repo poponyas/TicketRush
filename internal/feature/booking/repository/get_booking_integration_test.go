@@ -69,7 +69,7 @@ func TestGetBookingPostgres(t *testing.T) {
 
 func TestCreateAndGetOwnBookingHTTPPostgres(t *testing.T) {
 	f := newBookingFixture(t, 5)
-	h := transport.NewHTTPBookingTransport(service.NewBookingService(f.repo))
+	h := transport.NewHTTPBookingTransport(service.NewBookingService(f.repo), transport.NewBookingMetrics())
 	router := chi.NewRouter()
 	router.Post("/api/v1/events/{event_id}/sessions/{session_id}/bookings", h.CreateBooking)
 	router.Get("/api/v1/bookings/{booking_id}", h.GetBooking)

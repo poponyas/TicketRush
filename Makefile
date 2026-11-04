@@ -9,7 +9,7 @@ test-integration:
 	sh scripts/test_integration.sh
 
 env-up:
-	docker compose up -d --wait postgres
+	docker compose up -d --wait postgres jaeger prometheus grafana 
 
 env-down:
 	docker compose down

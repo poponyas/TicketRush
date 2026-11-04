@@ -1,5 +1,16 @@
 BEGIN;
 
+-- The legacy model has no session, tariff or price to map automatically.
+-- Lock before checking so a concurrent insert cannot be lost.
+LOCK TABLE bookings IN ACCESS EXCLUSIVE MODE;
+DO $guard$
+BEGIN
+    IF EXISTS (SELECT 1 FROM bookings) THEN
+        RAISE EXCEPTION 'Cannot migrate booking model: legacy bookings contain data. Migrate those records explicitly before applying migration 006.';
+    END IF;
+END
+$guard$;
+
 DROP TABLE bookings;
 
 CREATE TABLE booking (
