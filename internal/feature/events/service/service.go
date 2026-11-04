@@ -7,7 +7,15 @@ import (
 	"github.com/poponyas/TicketRush/internal/core/domain"
 )
 
-type EventsService struct{ eventsRepository EventsRepository }
+type EventsService struct {
+	eventsRepository EventsRepository
+	eventCache       EventCache
+}
+
+type EventCache interface {
+	Get(ctx context.Context, eventID uuid.UUID) (domain.Event, bool, error)
+	Set(ctx context.Context, event domain.Event) error
+}
 
 type EventsPage struct {
 	Events []domain.Event
@@ -38,6 +46,9 @@ type EventsRepository interface {
 	GetPublicEvents(ctx context.Context, limit, offset int) ([]domain.Event, error)
 }
 
-func NewEventsService(repo EventsRepository) *EventsService {
-	return &EventsService{eventsRepository: repo}
+func NewEventsService(repo EventsRepository, cache EventCache) *EventsService {
+	return &EventsService{
+		eventsRepository: repo,
+		eventCache:       cache,
+	}
 }

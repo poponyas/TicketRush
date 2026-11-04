@@ -41,7 +41,7 @@ func (r *recordingRepo) CreateEvent(ctx context.Context, e domain.Event, actor u
 }
 func TestCreateEventNormalizesDraft(t *testing.T) {
 	repo := &recordingRepo{}
-	s := service.NewEventsService(repo)
+	s := service.NewEventsService(repo, nil)
 	input := service.CreateEventInput{UserID: uuid.New(), OrganizerID: uuid.New(), Title: " Go Live ", Description: " Desc ", Category: " conference "}
 	event, err := s.CreateEvent(context.Background(), input)
 	require.NoError(t, err)
@@ -57,14 +57,14 @@ func TestInvalidEventDoesNotReachRepository(t *testing.T) {
 	for _, name := range []string{" ", strings.Repeat("я", 201)} {
 		t.Run(name, func(t *testing.T) {
 			repo := &recordingRepo{}
-			s := service.NewEventsService(repo)
+			s := service.NewEventsService(repo, nil)
 			_, err := s.CreateEvent(context.Background(), service.CreateEventInput{UserID: uuid.New(), OrganizerID: uuid.New(), Title: name})
 			require.ErrorIs(t, err, coreerrors.ErrInvalidArgument)
 			require.Zero(t, repo.calls)
 		})
 	}
 	repo := &recordingRepo{}
-	s := service.NewEventsService(repo)
+	s := service.NewEventsService(repo, nil)
 	_, err := s.CreateEvent(context.Background(), service.CreateEventInput{UserID: uuid.New(), OrganizerID: uuid.New(), Title: strings.Repeat("я", 200)})
 	require.NoError(t, err)
 }

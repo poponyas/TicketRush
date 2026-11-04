@@ -60,7 +60,7 @@ func TestListPagination(t *testing.T) {
 				require.Equal(t, user, userID)
 				return []domain.Event{{ID: uuid.New()}}, nil
 			}}
-			page, err := service.NewEventsService(repo).GetEvents(context.Background(), tc.limit, tc.offset, org, user)
+			page, err := service.NewEventsService(repo, nil).GetEvents(context.Background(), tc.limit, tc.offset, org, user)
 			require.NoError(t, err)
 			require.Equal(t, 1, calls)
 			require.Equal(t, tc.wantLimit, page.Limit)
@@ -77,7 +77,7 @@ func TestListPagination(t *testing.T) {
 		{"negative offset", nil, numberPointer(-1), org, user}, {"missing org", nil, nil, uuid.Nil, user}, {"missing user", nil, nil, org, uuid.Nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := service.NewEventsService(&repositoryStub{}).GetEvents(context.Background(), tc.limit, tc.offset, tc.org, tc.user)
+			_, err := service.NewEventsService(&repositoryStub{}, nil).GetEvents(context.Background(), tc.limit, tc.offset, tc.org, tc.user)
 			require.ErrorIs(t, err, coreerrors.ErrInvalidArgument)
 		})
 	}
@@ -118,7 +118,7 @@ func TestUpdateEventRules(t *testing.T) {
 					return e, nil
 				},
 			}
-			result, err := service.NewEventsService(repo).UpdateEvent(context.Background(), tc.input, original.ID, org, user)
+			result, err := service.NewEventsService(repo, nil).UpdateEvent(context.Background(), tc.input, original.ID, org, user)
 			if tc.wantErr != nil {
 				require.ErrorIs(t, err, tc.wantErr)
 				require.Zero(t, writes)
@@ -150,14 +150,14 @@ func TestUpdateEventRules(t *testing.T) {
 func TestEventCommandsRejectInvalidIDs(t *testing.T) {
 	org, user, id := uuid.New(), uuid.New(), uuid.New()
 	for _, ids := range [][3]uuid.UUID{{uuid.Nil, org, user}, {id, uuid.Nil, user}, {id, org, uuid.Nil}} {
-		s := service.NewEventsService(&repositoryStub{})
+		s := service.NewEventsService(&repositoryStub{}, nil)
 		_, err := s.GetEvent(context.Background(), ids[0], ids[1], ids[2])
 		require.ErrorIs(t, err, coreerrors.ErrInvalidArgument)
 		_, err = s.UpdateEvent(context.Background(), service.UpdateEventInput{Name: textPointer("Name")}, ids[0], ids[1], ids[2])
 		require.ErrorIs(t, err, coreerrors.ErrInvalidArgument)
 		require.ErrorIs(t, s.DeleteEvent(context.Background(), ids[0], ids[1], ids[2]), coreerrors.ErrInvalidArgument)
 	}
-	_, err := service.NewEventsService(&repositoryStub{}).UpdateEvent(context.Background(), service.UpdateEventInput{}, id, org, user)
+	_, err := service.NewEventsService(&repositoryStub{}, nil).UpdateEvent(context.Background(), service.UpdateEventInput{}, id, org, user)
 	require.ErrorIs(t, err, coreerrors.ErrInvalidArgument)
 }
 
@@ -173,7 +173,7 @@ func TestRepositoryErrorsArePreserved(t *testing.T) {
 			list:   func(context.Context, int, int, uuid.UUID, uuid.UUID) ([]domain.Event, error) { return nil, wrapped },
 			delete: func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) error { return wrapped },
 		}
-		s := service.NewEventsService(repo)
+		s := service.NewEventsService(repo, nil)
 		_, err := s.GetEvent(context.Background(), event.ID, org, user)
 		require.ErrorIs(t, err, expected)
 		_, err = s.GetEvents(context.Background(), nil, nil, org, user)
