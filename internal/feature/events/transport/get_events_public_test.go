@@ -103,7 +103,7 @@ func TestGetPublicEventsHTTPRejectsMalformedPagination(t *testing.T) {
 func TestGetPublicEventsHTTPServiceValidation(t *testing.T) {
 	// Exercise the real service's range checks through HTTP. The repository must
 	// never be called, so a nil repository is sufficient for these invalid inputs.
-	handler := transport.NewEventsHTTPTransport(service.NewEventsService(nil))
+	handler := transport.NewEventsHTTPTransport(service.NewEventsService(nil, nil))
 	for _, query := range []string{"?limit=0", "?limit=-1", "?limit=101", "?offset=-1"} {
 		t.Run(query, func(t *testing.T) {
 			w := httptest.NewRecorder()

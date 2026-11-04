@@ -33,7 +33,7 @@ func TestGetPublicEventsPagination(t *testing.T) {
 				require.Equal(t, tc.wantOffset, offset)
 				return expected, nil
 			}}
-			page, err := service.NewEventsService(repo).GetPublicEvents(context.Background(), tc.limit, tc.offset)
+			page, err := service.NewEventsService(repo, nil).GetPublicEvents(context.Background(), tc.limit, tc.offset)
 			require.NoError(t, err)
 			require.Equal(t, 1, calls)
 			require.Equal(t, expected, page.Events)
@@ -55,7 +55,7 @@ func TestGetPublicEventsRejectsInvalidPagination(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			// An unexpected repository call panics: invalid input must stop here.
-			_, err := service.NewEventsService(&repositoryStub{}).GetPublicEvents(context.Background(), tc.limit, tc.offset)
+			_, err := service.NewEventsService(&repositoryStub{}, nil).GetPublicEvents(context.Background(), tc.limit, tc.offset)
 			require.ErrorIs(t, err, coreerrors.ErrInvalidArgument)
 		})
 	}
@@ -66,6 +66,6 @@ func TestGetPublicEventsPreservesRepositoryError(t *testing.T) {
 	repo := &repositoryStub{publicList: func(context.Context, int, int) ([]domain.Event, error) {
 		return nil, fmt.Errorf("query: %w", expected)
 	}}
-	_, err := service.NewEventsService(repo).GetPublicEvents(context.Background(), nil, nil)
+	_, err := service.NewEventsService(repo, nil).GetPublicEvents(context.Background(), nil, nil)
 	require.ErrorIs(t, err, expected)
 }

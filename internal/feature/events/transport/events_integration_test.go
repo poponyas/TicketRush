@@ -23,7 +23,7 @@ const eventsURL = "/api/v1/organizer/events"
 
 // No service or repository mocks: requests exercise chi -> transport -> service -> PostgreSQL.
 func integrationRouter(f *testutil.Fixture) http.Handler {
-	h := transport.NewEventsHTTPTransport(service.NewEventsService(f.Repo))
+	h := transport.NewEventsHTTPTransport(service.NewEventsService(f.Repo, nil))
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(func(next http.Handler) http.Handler {

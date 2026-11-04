@@ -78,7 +78,7 @@ func TestGetPublicEventHTTPInvalidID(t *testing.T) {
 
 	// A syntactically valid zero UUID is rejected by the real service.
 	router = chi.NewRouter()
-	router.Get("/api/v1/events/{event_id}", transport.NewEventsHTTPTransport(service.NewEventsService(nil)).GetPublicEvent)
+	router.Get("/api/v1/events/{event_id}", transport.NewEventsHTTPTransport(service.NewEventsService(nil, nil)).GetPublicEvent)
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/events/"+uuid.Nil.String(), nil))
 	require.Equal(t, http.StatusBadRequest, w.Code)

@@ -18,9 +18,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	"github.com/poponyas/TicketRush/internal/core/auth"
+	core_cache_redis "github.com/poponyas/TicketRush/internal/core/cache/redis"
 	"github.com/poponyas/TicketRush/internal/core/domain"
 	corelogger "github.com/poponyas/TicketRush/internal/core/logger"
 	core_metrics "github.com/poponyas/TicketRush/internal/core/metrics"
+	core_ratelimit "github.com/poponyas/TicketRush/internal/core/ratelimit"
 	postgres "github.com/poponyas/TicketRush/internal/core/repository/postgres"
 	core_auth_password "github.com/poponyas/TicketRush/internal/core/security/password"
 	auth_token "github.com/poponyas/TicketRush/internal/core/security/token"
@@ -29,6 +31,7 @@ import (
 	booking_service "github.com/poponyas/TicketRush/internal/feature/booking/service"
 	booking_transport "github.com/poponyas/TicketRush/internal/feature/booking/transport"
 	booking_worker "github.com/poponyas/TicketRush/internal/feature/booking/worker"
+	events_cache "github.com/poponyas/TicketRush/internal/feature/events/cache"
 	repository "github.com/poponyas/TicketRush/internal/feature/events/repository"
 	service "github.com/poponyas/TicketRush/internal/feature/events/service"
 	transport "github.com/poponyas/TicketRush/internal/feature/events/transport"
@@ -118,6 +121,12 @@ func run(ctx context.Context) error {
 		return err
 	}
 	defer pool.Pool.Close()
+
+	redisClient, err := core_cache_redis.NewClient(ctx, core_cache_redis.NewConfigMust())
+	if err != nil {
+		return err
+	}
+	defer redisClient.Close()
 	address := os.Getenv("HTTP_ADDR")
 	if address == "" {
 		address = "127.0.0.1:8080"
@@ -197,9 +206,16 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("create auth service: %w", err)
 	}
 	authTransport := auth_http_transport.NewHTTPAuthTransport(authService)
+	loginLimiter, err := core_ratelimit.NewRedisLimiter(redisClient, 5, time.Second, time.Minute)
+	if err != nil {
+		return fmt.Errorf("create login rate limiter: %w", err)
+	}
+	rateLimitMetrics := core_ratelimit.NewRateLimitMetrics()
+	registry.MustRegister(rateLimitMetrics.Requests)
 
 	r.Post("/api/v1/auth/register", authTransport.Register)
-	r.Post("/api/v1/auth/login", authTransport.Login)
+	r.With(core_ratelimit.LimitByIP(loginLimiter, "ticketrush:ratelimit:login:", rateLimitMetrics)).
+		Post("/api/v1/auth/login", authTransport.Login)
 	r.Post("/api/v1/auth/refresh", authTransport.Refresh)
 	r.With(auth.Authenticate(tokenManager, authService)).
 		Post("/api/v1/auth/logout", authTransport.Logout)
@@ -216,7 +232,19 @@ func run(ctx context.Context) error {
 	// --------------------------------------------------------------------------
 
 	//  ----------------------------- EVENTS -------------------------------------
-	eventTransport := transport.NewEventsHTTPTransport(service.NewEventsService(repository.NewEventsRepo(pool)))
+	cacheMetrics := events_cache.NewCacheMetrics()
+	registry.MustRegister(cacheMetrics.Operations)
+	eventCache, err := events_cache.NewEventCache(
+		redisClient,
+		time.Second,
+		time.Minute,
+		cacheMetrics,
+	)
+	if err != nil {
+		return err
+	}
+
+	eventTransport := transport.NewEventsHTTPTransport(service.NewEventsService(repository.NewEventsRepo(pool), eventCache))
 	// Private
 	organizerProtected.Post("/api/v1/organizer/events", eventTransport.CreateEvent)
 	organizerProtected.Post("/api/v1/organizer/events/{event_id}/publish", eventTransport.PublishEvent)

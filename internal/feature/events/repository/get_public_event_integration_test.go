@@ -30,7 +30,7 @@ func TestGetPublicEventPostgres(t *testing.T) {
 
 	// Exercise HTTP -> service -> repository without any identity or token.
 	router := chi.NewRouter()
-	router.Get("/api/v1/events/{event_id}", transport.NewEventsHTTPTransport(service.NewEventsService(f.Repo)).GetPublicEvent)
+	router.Get("/api/v1/events/{event_id}", transport.NewEventsHTTPTransport(service.NewEventsService(f.Repo, nil)).GetPublicEvent)
 	for _, tc := range []struct {
 		name   string
 		id     uuid.UUID
