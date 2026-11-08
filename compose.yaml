@@ -25,6 +25,23 @@ services:
         timeout: 3s
         retries: 5
 
+  clickhouse:
+    image: clickhouse:26.9.27.3
+    environment:
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-ticketrush}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-ticketrush}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-ticketrush_dev}
+    ports:
+      - "127.0.0.1:8123:8123"
+      - "127.0.0.1:9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --host 127.0.0.1 --user \"$$CLICKHOUSE_USER\" --password \"$$CLICKHOUSE_PASSWORD\" --database \"$$CLICKHOUSE_DB\" --query 'SELECT 1'"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   migrate:
     image: migrate/migrate:v4.18.3
     profiles: ["tools"]
@@ -40,6 +57,27 @@ services:
       - -database
       - "${MIGRATE_DATABASE_URL:-postgres://${POSTGRES_USER:-ticketrush}:${POSTGRES_PASSWORD:-ticketrush_dev}@postgres:5432/${POSTGRES_DB:-ticketrush}?sslmode=disable}"
     command: ["up"]
+
+  migrate-clickhouse:
+    image: migrate/migrate:v4.18.3
+    profiles: ["tools"]
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    volumes:
+      - ./clickhouse/migrations:/migrations:ro
+    entrypoint:
+      - migrate
+      - -path
+      - /migrations
+      - -database
+      - "${CLICKHOUSE_MIGRATE_DATABASE_URL:-clickhouse://clickhouse:9000?username=${CLICKHOUSE_USER:-ticketrush}&password=${CLICKHOUSE_PASSWORD:-ticketrush_dev}&database=${CLICKHOUSE_DB:-ticketrush}&x-multi-statement=true}"
+    command: ["up"]
+
+  kafka:
+      image: apache/kafka:4.4.0
+      ports:
+        - "127.0.0.1:9092:9092"
 
 
   jaeger:
@@ -75,3 +113,4 @@ volumes:
   postgres_data:
   prometheus_data:
   grafana_data:
+  clickhouse_data:

@@ -44,6 +44,7 @@ func New(t *testing.T) *Fixture {
 			query string
 			args  []any
 		}{
+			{`DELETE FROM outbox_events WHERE aggregate_id IN (SELECT b.id FROM booking b JOIN sessions s ON s.id=b.session_id JOIN events e ON e.id=s.event_id WHERE e.organizer_id IN ($1,$2))`, []any{f.OrgID, f.OtherOrgID}},
 			{`DELETE FROM booking WHERE session_id IN (SELECT s.id FROM sessions s JOIN events e ON e.id=s.event_id WHERE e.organizer_id IN ($1,$2))`, []any{f.OrgID, f.OtherOrgID}},
 			{`DELETE FROM ticket_types WHERE session_id IN (SELECT s.id FROM sessions s JOIN events e ON e.id=s.event_id WHERE e.organizer_id IN ($1,$2))`, []any{f.OrgID, f.OtherOrgID}},
 			{`DELETE FROM sessions WHERE event_id IN (SELECT id FROM events WHERE organizer_id IN ($1,$2))`, []any{f.OrgID, f.OtherOrgID}},

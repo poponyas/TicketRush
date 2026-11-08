@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	coreerrors "github.com/poponyas/TicketRush/internal/core/errors"
+	booking_events "github.com/poponyas/TicketRush/internal/feature/booking/events"
 )
 
 // ExpireBookings commits one bounded batch and returns the number expired.
@@ -55,6 +56,10 @@ func (r *BookingRepository) ExpireBookings(ctx context.Context, limit int) (int,
 	}
 	if tag.RowsAffected() != int64(len(ids)) {
 		return 0, fmt.Errorf("expiration batch changed unexpectedly: %w", coreerrors.ErrConflict)
+	}
+	if err := insertBookingLifecycleEvents(ctx, tx, ids,
+		booking_events.BookingExpiredType, booking_events.BookingExpiredSchemaVersion); err != nil {
+		return 0, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return 0, fmt.Errorf("commit booking expiration: %w", err)

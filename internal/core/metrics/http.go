@@ -10,12 +10,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-type HTTPMertics struct {
+type HTTPMetrics struct {
 	Requests *prometheus.CounterVec
 	Duration *prometheus.HistogramVec
 }
 
-func NewHTTPMetrics() *HTTPMertics {
+func NewHTTPMetrics() *HTTPMetrics {
 	counterReq := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "ticketrush_http_requests_total",
@@ -47,13 +47,13 @@ func NewHTTPMetrics() *HTTPMertics {
 		},
 	)
 
-	return &HTTPMertics{
+	return &HTTPMetrics{
 		Requests: counterReq,
 		Duration: duration,
 	}
 }
 
-func (m *HTTPMertics) Middleware(next http.Handler) http.Handler {
+func (m *HTTPMetrics) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			before := time.Now()

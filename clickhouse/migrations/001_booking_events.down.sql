@@ -1,0 +1,1 @@
+DROP TABLE ticketrush.booking_events;
