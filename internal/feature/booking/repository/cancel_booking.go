@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/poponyas/TicketRush/internal/core/domain"
 	coreerrors "github.com/poponyas/TicketRush/internal/core/errors"
+	booking_events "github.com/poponyas/TicketRush/internal/feature/booking/events"
 )
 
 func (r *BookingRepository) CancelBooking(ctx context.Context, bookingID, userID uuid.UUID) (domain.Booking, error) {
@@ -76,6 +77,10 @@ func (r *BookingRepository) CancelBooking(ctx context.Context, bookingID, userID
 	}
 	if err != nil {
 		return domain.Booking{}, fmt.Errorf("read cancelled booking: %w", err)
+	}
+	if err := insertBookingLifecycleEvents(ctx, tx, []uuid.UUID{saved.ID},
+		booking_events.BookingCancelledType, booking_events.BookingCancelledSchemaVersion); err != nil {
+		return domain.Booking{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return domain.Booking{}, fmt.Errorf("commit booking cancellation: %w", err)

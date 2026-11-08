@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/poponyas/TicketRush/internal/core/domain"
 	coreerrors "github.com/poponyas/TicketRush/internal/core/errors"
+	booking_events "github.com/poponyas/TicketRush/internal/feature/booking/events"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
 )
@@ -124,6 +125,25 @@ func (r *BookingRepository) CreateBooking(
 	if _, err := tx.Exec(ctx, itemQuery, uuid.New(), saved.ID, ticketTypeID, quantity,
 		unitPrice.Amount, unitPrice.Currency); err != nil {
 		return domain.Booking{}, fmt.Errorf("insert booking item: %w", err)
+	}
+
+	bookingCreatedPayload := booking_events.BookingCreatedPayload{
+		BookingID:    saved.ID,
+		EventID:      eventID,
+		SessionID:    saved.SessionID,
+		TicketTypeID: ticketTypeID,
+		Quantity:     quantity,
+	}
+
+	if err := insertBookingOutboxEvent(
+		ctx,
+		tx,
+		bookingCreatedPayload,
+		booking_events.BookingCreatedType,
+		booking_events.BookingCreatedSchemaVersion,
+		saved.CreatedAt,
+	); err != nil {
+		return domain.Booking{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return domain.Booking{}, fmt.Errorf("commit booking transaction: %w", err)

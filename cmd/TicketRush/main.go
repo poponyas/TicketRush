@@ -23,10 +23,14 @@ import (
 	corelogger "github.com/poponyas/TicketRush/internal/core/logger"
 	core_metrics "github.com/poponyas/TicketRush/internal/core/metrics"
 	core_ratelimit "github.com/poponyas/TicketRush/internal/core/ratelimit"
+	core_clickhouse "github.com/poponyas/TicketRush/internal/core/repository/clickhouse"
 	postgres "github.com/poponyas/TicketRush/internal/core/repository/postgres"
 	core_auth_password "github.com/poponyas/TicketRush/internal/core/security/password"
 	auth_token "github.com/poponyas/TicketRush/internal/core/security/token"
 	core_tracing "github.com/poponyas/TicketRush/internal/core/tracing"
+	analytics_repository "github.com/poponyas/TicketRush/internal/feature/analytics/repository"
+	analytics_service "github.com/poponyas/TicketRush/internal/feature/analytics/service"
+	analytics_transport "github.com/poponyas/TicketRush/internal/feature/analytics/transport"
 	booking_repository "github.com/poponyas/TicketRush/internal/feature/booking/repository"
 	booking_service "github.com/poponyas/TicketRush/internal/feature/booking/service"
 	booking_transport "github.com/poponyas/TicketRush/internal/feature/booking/transport"
@@ -38,6 +42,9 @@ import (
 	auth_repository "github.com/poponyas/TicketRush/internal/feature/identity/repository"
 	auth_service "github.com/poponyas/TicketRush/internal/feature/identity/service"
 	auth_http_transport "github.com/poponyas/TicketRush/internal/feature/identity/transport"
+	outbox_publisher "github.com/poponyas/TicketRush/internal/feature/outbox/publisher"
+	outbox_repository "github.com/poponyas/TicketRush/internal/feature/outbox/repository"
+	outbox_worker "github.com/poponyas/TicketRush/internal/feature/outbox/worker"
 	ticket_type_repository "github.com/poponyas/TicketRush/internal/feature/rate/repository"
 	ticket_type_service "github.com/poponyas/TicketRush/internal/feature/rate/service"
 	ticket_type_transport "github.com/poponyas/TicketRush/internal/feature/rate/transport"
@@ -49,6 +56,7 @@ import (
 	venue_http_tranpsort "github.com/poponyas/TicketRush/internal/feature/venue/tranpsort"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/segmentio/kafka-go"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 )
@@ -244,7 +252,8 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	eventTransport := transport.NewEventsHTTPTransport(service.NewEventsService(repository.NewEventsRepo(pool), eventCache))
+	eventRepo := repository.NewEventsRepo(pool)
+	eventTransport := transport.NewEventsHTTPTransport(service.NewEventsService(eventRepo, eventCache))
 	// Private
 	organizerProtected.Post("/api/v1/organizer/events", eventTransport.CreateEvent)
 	organizerProtected.Post("/api/v1/organizer/events/{event_id}/publish", eventTransport.PublishEvent)
@@ -259,6 +268,25 @@ func run(ctx context.Context) error {
 	// Public
 	r.Get("/api/v1/events", eventTransport.GetPublicEvents)
 	r.Get("/api/v1/events/{event_id}", eventTransport.GetPublicEvent)
+
+	// Booking analytics uses ClickHouse; event access is checked in PostgreSQL.
+	clickhouseConfig, err := core_clickhouse.NewConfig()
+	if err != nil {
+		return fmt.Errorf("configure booking analytics: %w", err)
+	}
+	clickhouseConn, err := core_clickhouse.NewClient(ctx, clickhouseConfig)
+	if err != nil {
+		return fmt.Errorf("initialize booking analytics: %w", err)
+	}
+	defer func() {
+		if err := clickhouseConn.Close(); err != nil {
+			log.Error("close clickhouse", zap.Error(err))
+		}
+	}()
+	analyticsRepo := analytics_repository.NewAnalytics(clickhouseConn, clickhouseConfig.Timeout)
+	analyticsService := analytics_service.NewAnalyticsService(analyticsRepo, eventRepo)
+	analyticsTransport := analytics_transport.NewHTTPAnalyticsTransport(analyticsService)
+	organizerProtected.Get("/api/v1/organizer/events/{event_id}/analytics/bookings", analyticsTransport.GetBookingStats)
 	r.Get("/livez", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
 	r.Get("/readyz", func(w http.ResponseWriter, r *http.Request) {
 		pingCtx, cancel := context.WithTimeout(r.Context(), time.Second)
@@ -323,6 +351,48 @@ func run(ctx context.Context) error {
 		bookingService,
 		bookingMetrics,
 	)
+
+	writer := &kafka.Writer{
+		Addr:                   kafka.TCP("127.0.0.1:9092"),
+		Topic:                  "ticketrush.bookings",
+		Balancer:               &kafka.Hash{},
+		RequiredAcks:           kafka.RequireAll,
+		Async:                  false,
+		BatchSize:              1,
+		MaxAttempts:            3,
+		ReadTimeout:            3 * time.Second,
+		WriteTimeout:           3 * time.Second,
+		AllowAutoTopicCreation: false,
+	}
+	defer func() {
+		if err := writer.Close(); err != nil {
+			log.Error("close kafka writer", zap.Error(err))
+		}
+	}()
+
+	outboxWorker, err := outbox_worker.NewOutboxWorker(
+		outbox_repository.NewOutboxRepository(pool),
+		outbox_publisher.NewKafkaPublisher(writer),
+		10,
+		5*time.Second,
+		log,
+	)
+	if err != nil {
+		return fmt.Errorf("initialize outbox worker: %w", err)
+	}
+
+	outboxCtx, stopOutbox := context.WithCancel(ctx)
+	outboxDone := make(chan struct{})
+
+	go func() {
+		defer close(outboxDone)
+		outboxWorker.Run(outboxCtx)
+	}()
+
+	defer func() {
+		stopOutbox()
+		<-outboxDone
+	}()
 
 	r.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 	protected.Post("/api/v1/events/{event_id}/sessions/{session_id}/bookings", bookingTransport.CreateBooking)

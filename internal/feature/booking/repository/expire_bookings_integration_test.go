@@ -13,6 +13,7 @@ import (
 	"github.com/poponyas/TicketRush/internal/core/domain"
 	coreerrors "github.com/poponyas/TicketRush/internal/core/errors"
 	postgres "github.com/poponyas/TicketRush/internal/core/repository/postgres"
+	booking_events "github.com/poponyas/TicketRush/internal/feature/booking/events"
 	repository "github.com/poponyas/TicketRush/internal/feature/booking/repository"
 	"github.com/stretchr/testify/require"
 )
@@ -38,7 +39,7 @@ func newExpirationFixture(t *testing.T, capacity int) *bookingFixture {
 	})
 	// Clone migrated columns, checks and indexes. Parent entities are read from
 	// public; FK behavior is covered by the non-isolated booking integration tests.
-	for _, table := range []string{"booking", "booking_item", "ticket_types"} {
+	for _, table := range []string{"booking", "booking_item", "ticket_types", "outbox_events"} {
 		name := pgx.Identifier{table}.Sanitize()
 		_, err := original.Exec(ctx, "CREATE TABLE "+schema+"."+name+" (LIKE "+name+" INCLUDING ALL)")
 		require.NoError(t, err)
@@ -153,6 +154,9 @@ func TestExpireBookingsConcurrentSkipLockedPostgres(t *testing.T) {
 	count, err = f.repo.ExpireBookings(ctx, 2)
 	require.NoError(t, err)
 	require.Zero(t, count)
+	for _, b := range bookings {
+		assertBookingOutbox(t, f, b.ID, booking_events.BookingExpiredType, map[uuid.UUID]int{f.ticketTypeID: 1})
+	}
 }
 
 func TestExpireBookingsRollbackPostgres(t *testing.T) {
@@ -204,6 +208,8 @@ func TestExpireBookingsAndCancellationPostgres(t *testing.T) {
 	require.Equal(t, 1, outcome.count+count)
 	f.assertInventory(t, 1, 0)
 	assertBookingStatus(t, f, b.ID, domain.BookingExpired)
+	assertBookingOutbox(t, f, b.ID, booking_events.BookingExpiredType, map[uuid.UUID]int{f.ticketTypeID: 1})
+	require.Empty(t, readBookingOutbox(t, f, b.ID, booking_events.BookingCancelledType))
 }
 
 func TestExpireBookingsRejectsInvalidBatch(t *testing.T) {

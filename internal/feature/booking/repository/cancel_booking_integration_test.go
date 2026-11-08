@@ -16,6 +16,7 @@ import (
 	"github.com/poponyas/TicketRush/internal/core/auth"
 	"github.com/poponyas/TicketRush/internal/core/domain"
 	coreerrors "github.com/poponyas/TicketRush/internal/core/errors"
+	booking_events "github.com/poponyas/TicketRush/internal/feature/booking/events"
 	service "github.com/poponyas/TicketRush/internal/feature/booking/service"
 	transport "github.com/poponyas/TicketRush/internal/feature/booking/transport"
 	"github.com/stretchr/testify/require"
@@ -111,6 +112,7 @@ func TestCancelBookingMultipleItemsPostgres(t *testing.T) {
 	require.NoError(t, f.Pool.QueryRow(ctx, `SELECT available,held FROM ticket_types WHERE id=$1`, second).Scan(&available, &held))
 	require.Equal(t, 1, available)
 	require.Zero(t, held)
+	assertBookingOutbox(t, f, b.ID, booking_events.BookingCancelledType, map[uuid.UUID]int{f.ticketTypeID: 3, second: 1})
 }
 
 func TestCancelBookingRollbackPostgres(t *testing.T) {
@@ -171,6 +173,7 @@ func TestCancelBookingConcurrentPostgres(t *testing.T) {
 	}
 	f.assertInventory(t, 1, 0)
 	assertBookingStatus(t, f, b.ID, domain.BookingCancelled)
+	assertBookingOutbox(t, f, b.ID, booking_events.BookingCancelledType, map[uuid.UUID]int{f.ticketTypeID: 1})
 }
 
 func TestCancelOwnBookingHTTPPostgres(t *testing.T) {
