@@ -16,6 +16,7 @@ import (
 func TestDecodeBookingEventLifecycle(t *testing.T) {
 	for _, eventType := range []string{
 		booking_events.BookingCreatedType,
+		booking_events.BookingConfirmedType,
 		booking_events.BookingCancelledType,
 		booking_events.BookingExpiredType,
 	} {

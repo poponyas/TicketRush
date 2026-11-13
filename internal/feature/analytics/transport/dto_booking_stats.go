@@ -17,6 +17,7 @@ type BookingStatsReportResponse struct {
 	From      time.Time            `json:"from"`
 	To        time.Time            `json:"to"`
 	Created   BookingStatsResponse `json:"created"`
+	Confirmed BookingStatsResponse `json:"confirmed"`
 	Cancelled BookingStatsResponse `json:"cancelled"`
 	Expired   BookingStatsResponse `json:"expired"`
 }
@@ -29,6 +30,7 @@ func bookingStatsResponse(report service.BookingStatsReport) BookingStatsReportR
 		Created: BookingStatsResponse{
 			Bookings: report.Created.Bookings, Tickets: report.Created.Tickets,
 		},
+		Confirmed: BookingStatsResponse{Bookings: report.Confirmed.Bookings, Tickets: report.Confirmed.Tickets},
 		Cancelled: BookingStatsResponse{
 			Bookings: report.Cancelled.Bookings, Tickets: report.Cancelled.Tickets,
 		},

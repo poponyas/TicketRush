@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -48,8 +49,12 @@ func run(ctx context.Context) error {
 
 	fmt.Println("ClickHouse connected")
 
+	brokers := strings.Split(os.Getenv("KAFKA_BROKERS"), ",")
+	if len(brokers) == 1 && brokers[0] == "" {
+		brokers = []string{"127.0.0.1:9092"}
+	}
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:        []string{"127.0.0.1:9092"},
+		Brokers:        brokers,
 		Topic:          "ticketrush.bookings",
 		GroupID:        "ticketrush-booking-analytics-v1",
 		StartOffset:    kafka.FirstOffset,

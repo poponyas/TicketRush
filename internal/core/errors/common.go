@@ -3,6 +3,7 @@ package core_errors
 import "errors"
 
 var (
+	ErrUnavailable          = errors.New("service unavailable")
 	ErrUnauthenticated      = errors.New("unauthenticated")
 	ErrForbidden            = errors.New("forbidden")
 	ErrPayloadTooLarge      = errors.New("payload too large")

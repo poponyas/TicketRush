@@ -45,6 +45,10 @@ func (h *HTTPResponseHandler) ErrorResponse(err error, msg string) {
 	status := http.StatusInternalServerError
 	code, publicMessage := "internal_error", "internal server error"
 	switch {
+	case errors.Is(err, coreerrors.ErrUnavailable):
+		status = http.StatusServiceUnavailable
+		code = "unavailable"
+		publicMessage = "service temporarily unavailable"
 	case errors.Is(err, coreerrors.ErrInvalidArgument):
 		status = http.StatusBadRequest
 		code = "invalid_argument"

@@ -37,7 +37,7 @@ services:
     volumes:
       - clickhouse_data:/var/lib/clickhouse
     healthcheck:
-      test: ["CMD-SHELL", "clickhouse-client --host 127.0.0.1 --user \"$$CLICKHOUSE_USER\" --password \"$$CLICKHOUSE_PASSWORD\" --database \"$$CLICKHOUSE_DB\" --query 'SELECT 1'"]
+      test: ["CMD-SHELL", "clickhouse-client --host \"$$(hostname -i)\" --user \"$$CLICKHOUSE_USER\" --password \"$$CLICKHOUSE_PASSWORD\" --database \"$$CLICKHOUSE_DB\" --query 'SELECT 1'"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -76,8 +76,47 @@ services:
 
   kafka:
       image: apache/kafka:4.4.0
+      environment:
+        KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+        KAFKA_NODE_ID: 1
+        KAFKA_PROCESS_ROLES: broker,controller
+        KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+        KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+        KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://127.0.0.1:9092
+        KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+        KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+        KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+        KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+        KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+        KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+        KAFKA_HEAP_OPTS: -Xms256m -Xmx512m
       ports:
         - "127.0.0.1:9092:9092"
+      volumes:
+        - kafka_data:/tmp/kraft-combined-logs
+      healthcheck:
+        test: ["CMD", "/opt/kafka/bin/kafka-topics.sh", "--bootstrap-server", "localhost:9092", "--list"]
+        interval: 10s
+        timeout: 10s
+        retries: 12
+        start_period: 15s
+
+  s3:
+    image: ghcr.io/chrislusf/seaweedfs:4.53
+    command: ["mini", "-dir=/data"]
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY:-ticketrush}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:-ticketrush_dev}
+      S3_BUCKET: ${S3_BUCKET:-ticketrush-posters}
+    ports:
+      - "127.0.0.1:9002:8333"
+    volumes:
+      - s3_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9333/dir/status"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
 
 
   jaeger:
@@ -114,3 +153,5 @@ volumes:
   prometheus_data:
   grafana_data:
   clickhouse_data:
+  kafka_data:
+  s3_data:

@@ -26,7 +26,9 @@ import (
 	core_clickhouse "github.com/poponyas/TicketRush/internal/core/repository/clickhouse"
 	postgres "github.com/poponyas/TicketRush/internal/core/repository/postgres"
 	core_auth_password "github.com/poponyas/TicketRush/internal/core/security/password"
+	"github.com/poponyas/TicketRush/internal/core/security/ticketqr"
 	auth_token "github.com/poponyas/TicketRush/internal/core/security/token"
+	"github.com/poponyas/TicketRush/internal/core/storage/s3"
 	core_tracing "github.com/poponyas/TicketRush/internal/core/tracing"
 	analytics_repository "github.com/poponyas/TicketRush/internal/feature/analytics/repository"
 	analytics_service "github.com/poponyas/TicketRush/internal/feature/analytics/service"
@@ -35,6 +37,8 @@ import (
 	booking_service "github.com/poponyas/TicketRush/internal/feature/booking/service"
 	booking_transport "github.com/poponyas/TicketRush/internal/feature/booking/transport"
 	booking_worker "github.com/poponyas/TicketRush/internal/feature/booking/worker"
+	checkout_service "github.com/poponyas/TicketRush/internal/feature/checkout/service"
+	checkout_transport "github.com/poponyas/TicketRush/internal/feature/checkout/transport"
 	events_cache "github.com/poponyas/TicketRush/internal/feature/events/cache"
 	repository "github.com/poponyas/TicketRush/internal/feature/events/repository"
 	service "github.com/poponyas/TicketRush/internal/feature/events/service"
@@ -45,12 +49,17 @@ import (
 	outbox_publisher "github.com/poponyas/TicketRush/internal/feature/outbox/publisher"
 	outbox_repository "github.com/poponyas/TicketRush/internal/feature/outbox/repository"
 	outbox_worker "github.com/poponyas/TicketRush/internal/feature/outbox/worker"
+	posters_service "github.com/poponyas/TicketRush/internal/feature/posters/service"
+	posters_transport "github.com/poponyas/TicketRush/internal/feature/posters/transport"
 	ticket_type_repository "github.com/poponyas/TicketRush/internal/feature/rate/repository"
 	ticket_type_service "github.com/poponyas/TicketRush/internal/feature/rate/service"
 	ticket_type_transport "github.com/poponyas/TicketRush/internal/feature/rate/transport"
 	session_repository "github.com/poponyas/TicketRush/internal/feature/session/repository"
 	session_service "github.com/poponyas/TicketRush/internal/feature/session/service"
 	session_transport "github.com/poponyas/TicketRush/internal/feature/session/transport"
+	tickets_repository "github.com/poponyas/TicketRush/internal/feature/tickets/repository"
+	tickets_service "github.com/poponyas/TicketRush/internal/feature/tickets/service"
+	tickets_transport "github.com/poponyas/TicketRush/internal/feature/tickets/transport"
 	venue_repository "github.com/poponyas/TicketRush/internal/feature/venue/repository"
 	venue_service "github.com/poponyas/TicketRush/internal/feature/venue/service"
 	venue_http_tranpsort "github.com/poponyas/TicketRush/internal/feature/venue/tranpsort"
@@ -274,7 +283,7 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("configure booking analytics: %w", err)
 	}
-	clickhouseConn, err := core_clickhouse.NewClient(ctx, clickhouseConfig)
+	clickhouseConn, err := core_clickhouse.OpenClient(clickhouseConfig)
 	if err != nil {
 		return fmt.Errorf("initialize booking analytics: %w", err)
 	}
@@ -287,6 +296,17 @@ func run(ctx context.Context) error {
 	analyticsService := analytics_service.NewAnalyticsService(analyticsRepo, eventRepo)
 	analyticsTransport := analytics_transport.NewHTTPAnalyticsTransport(analyticsService)
 	organizerProtected.Get("/api/v1/organizer/events/{event_id}/analytics/bookings", analyticsTransport.GetBookingStats)
+	s3Config, err := s3.NewConfig()
+	if err != nil {
+		return err
+	}
+	objectStore, err := s3.New(s3Config)
+	if err != nil {
+		return err
+	}
+	posterTransport := posters_transport.New(posters_service.New(eventRepo, objectStore))
+	organizerProtected.Post("/api/v1/organizer/events/{event_id}/poster", posterTransport.Upload)
+	r.Get("/api/v1/events/{event_id}/poster", posterTransport.Get)
 	r.Get("/livez", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
 	r.Get("/readyz", func(w http.ResponseWriter, r *http.Request) {
 		pingCtx, cancel := context.WithTimeout(r.Context(), time.Second)
@@ -301,8 +321,13 @@ func run(ctx context.Context) error {
 	// --------------------------------------------------------------------------
 
 	// ----------------------------- VENUES -------------------------------------
-	venueTransport := venue_http_tranpsort.NewHTTPVenueTransport(venue_service.NewVenueService(venue_repository.NewVenueRepository(pool)))
-	protected.With(auth.RequireVenueOwner).Post("/api/v1/venues", venueTransport.CreateVenue)
+	venueRepo := venue_repository.NewVenueRepository(pool)
+	venueTransport := venue_http_tranpsort.NewHTTPVenueTransport(venue_service.NewVenueService(venueRepo))
+	venueProtected := protected.With(auth.RequireVenueOwner)
+	if !devEnabled {
+		venueProtected = protected.With(auth.SelectVenueOwner(venueRepo), auth.RequireVenueOwner)
+	}
+	venueProtected.Post("/api/v1/venues", venueTransport.CreateVenue)
 	r.Get("/api/v1/venues", venueTransport.GetVenues)
 	r.Get("/api/v1/venues/{venue_id}", venueTransport.GetVenue)
 
@@ -352,8 +377,12 @@ func run(ctx context.Context) error {
 		bookingMetrics,
 	)
 
+	brokers := strings.Split(os.Getenv("KAFKA_BROKERS"), ",")
+	if len(brokers) == 1 && brokers[0] == "" {
+		brokers = []string{"127.0.0.1:9092"}
+	}
 	writer := &kafka.Writer{
-		Addr:                   kafka.TCP("127.0.0.1:9092"),
+		Addr:                   kafka.TCP(brokers...),
 		Topic:                  "ticketrush.bookings",
 		Balancer:               &kafka.Hash{},
 		RequiredAcks:           kafka.RequireAll,
@@ -398,6 +427,24 @@ func run(ctx context.Context) error {
 	protected.Post("/api/v1/events/{event_id}/sessions/{session_id}/bookings", bookingTransport.CreateBooking)
 	protected.Get("/api/v1/bookings/{booking_id}", bookingTransport.GetBooking)
 	protected.Post("/api/v1/bookings/{booking_id}/cancel", bookingTransport.CancelBooking)
+	mockPayments := false
+	if value := os.Getenv("MOCK_PAYMENTS_ENABLED"); value != "" {
+		mockPayments, err = strconv.ParseBool(value)
+		if err != nil {
+			return fmt.Errorf("parse MOCK_PAYMENTS_ENABLED: %w", err)
+		}
+	}
+	checkoutTransport := checkout_transport.New(checkout_service.New(bookingRepo, mockPayments))
+	protected.Post("/api/v1/bookings/{booking_id}/confirm", checkoutTransport.Confirm)
+	qrSigner, err := ticketqr.New(jwtConfig.Secret)
+	if err != nil {
+		return err
+	}
+	ticketTransport := tickets_transport.New(tickets_service.New(tickets_repository.New(pool), qrSigner))
+	protected.Get("/api/v1/me/tickets", ticketTransport.List)
+	protected.Get("/api/v1/tickets/{ticket_id}", ticketTransport.Get)
+	protected.Get("/api/v1/tickets/{ticket_id}/qr", ticketTransport.QR)
+	protected.Post("/api/v1/controller/sessions/{session_id}/check-ins", ticketTransport.CheckIn)
 
 	server := &http.Server{Addr: address, Handler: r, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second}
 	expirationWorker, err := booking_worker.NewExpirationWorker(bookingService, log, booking_worker.DefaultExpirationConfig(), workerMetrics)

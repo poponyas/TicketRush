@@ -83,6 +83,7 @@ func TestBookingStatsHTTP(t *testing.T) {
 	require.JSONEq(t, fmt.Sprintf(`{
 		"event_id": %q, "from": %q, "to": %q,
 		"created": {"bookings": 2, "tickets": 5},
+		"confirmed": {"bookings": 0, "tickets": 0},
 		"cancelled": {"bookings": 0, "tickets": 0},
 		"expired": {"bookings": 0, "tickets": 0}
 	}`, eventID.String(), from.UTC().Format(time.RFC3339Nano), to.UTC().Format(time.RFC3339Nano)), rw.Body.String())

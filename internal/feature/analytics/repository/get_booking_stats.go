@@ -7,6 +7,7 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/google/uuid"
+	coreerrors "github.com/poponyas/TicketRush/internal/core/errors"
 )
 
 func (a *Analytics) GetBookingStats(
@@ -35,7 +36,7 @@ func (a *Analytics) GetBookingStats(
 		clickhouse.DateNamed("to", microsecondCeiling(to), clickhouse.MicroSeconds),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("query booking stats: %w", err)
+		return nil, fmt.Errorf("query booking stats: %w: %w", coreerrors.ErrUnavailable, err)
 	}
 	defer rows.Close()
 

@@ -44,6 +44,7 @@ type BookingStatsReport struct {
 	From      time.Time
 	To        time.Time
 	Created   BookingStats
+	Confirmed BookingStats
 	Cancelled BookingStats
 	Expired   BookingStats
 }

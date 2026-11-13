@@ -31,6 +31,8 @@ func DecodeBookingEvent(
 
 	var expectedVersion int
 	switch message.Type {
+	case booking_events.BookingConfirmedType:
+		expectedVersion = booking_events.BookingConfirmedSchemaVersion
 	case booking_events.BookingCreatedType:
 		expectedVersion = booking_events.BookingCreatedSchemaVersion
 	case booking_events.BookingCancelledType:

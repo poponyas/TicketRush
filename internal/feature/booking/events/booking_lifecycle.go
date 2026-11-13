@@ -3,6 +3,8 @@ package booking_events
 import "github.com/google/uuid"
 
 const (
+	BookingConfirmedType          = "booking.confirmed"
+	BookingConfirmedSchemaVersion = 1
 	BookingCancelledType          = "booking.cancelled"
 	BookingCancelledSchemaVersion = 1
 	BookingExpiredType            = "booking.expired"

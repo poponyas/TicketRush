@@ -38,6 +38,8 @@ func (s *AnalyticsService) GetBookingStats(ctx context.Context, input BookingSta
 	for _, row := range rows {
 		stats := BookingStats{Bookings: row.Bookings, Tickets: row.Tickets}
 		switch row.EventType {
+		case booking_events.BookingConfirmedType:
+			report.Confirmed = stats
 		case booking_events.BookingCreatedType:
 			report.Created = stats
 		case booking_events.BookingCancelledType:

@@ -8,7 +8,8 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
-func NewClient(ctx context.Context, cfg Config) (driver.Conn, error) {
+// OpenClient is lazy: API startup does not depend on analytics availability.
+func OpenClient(cfg Config) (driver.Conn, error) {
 	if cfg.Timeout <= 0 {
 		return nil, fmt.Errorf("clickhouse timeout must be positive")
 	}
@@ -27,6 +28,15 @@ func NewClient(ctx context.Context, cfg Config) (driver.Conn, error) {
 		return nil, fmt.Errorf("clickhouse tune config vars: %w", err)
 	}
 
+	return conn, nil
+}
+
+// NewClient additionally checks connectivity for the dedicated analytics worker.
+func NewClient(ctx context.Context, cfg Config) (driver.Conn, error) {
+	conn, err := OpenClient(cfg)
+	if err != nil {
+		return nil, err
+	}
 	ctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
 	defer cancel()
 

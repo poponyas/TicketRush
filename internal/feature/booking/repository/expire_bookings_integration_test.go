@@ -39,7 +39,7 @@ func newExpirationFixture(t *testing.T, capacity int) *bookingFixture {
 	})
 	// Clone migrated columns, checks and indexes. Parent entities are read from
 	// public; FK behavior is covered by the non-isolated booking integration tests.
-	for _, table := range []string{"booking", "booking_item", "ticket_types", "outbox_events"} {
+	for _, table := range []string{"booking", "booking_item", "ticket_types", "outbox_events", "tickets"} {
 		name := pgx.Identifier{table}.Sanitize()
 		_, err := original.Exec(ctx, "CREATE TABLE "+schema+"."+name+" (LIKE "+name+" INCLUDING ALL)")
 		require.NoError(t, err)

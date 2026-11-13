@@ -19,6 +19,7 @@ type EventResponse struct {
 	Description string             `json:"description"`
 	Category    string             `json:"category"`
 	PosterKey   string             `json:"poster_key,omitempty"`
+	PosterURL   string             `json:"poster_url,omitempty"`
 	Status      domain.EventStatus `json:"status"`
 	CreatedAt   time.Time          `json:"created_at"`
 	UpdatedAt   time.Time          `json:"updated_at"`
@@ -31,8 +32,12 @@ type EventsListResponse struct {
 }
 
 func eventResponse(event domain.Event) EventResponse {
+	posterURL := ""
+	if event.PosterKey != "" {
+		posterURL = "/api/v1/events/" + event.ID.String() + "/poster"
+	}
 	return EventResponse{ID: event.ID, OrganizerID: event.OrganizerID, Title: event.Title,
-		Description: event.Description, Category: event.Category, PosterKey: event.PosterKey,
+		Description: event.Description, Category: event.Category, PosterKey: event.PosterKey, PosterURL: posterURL,
 		Status: event.Status, CreatedAt: event.CreatedAt, UpdatedAt: event.UpdatedAt}
 }
 
