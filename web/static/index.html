@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#4f35d6">
+  <meta name="description" content="TicketRush — мероприятия, которые хочется запомнить. Бронируйте билеты и сохраняйте QR для входа.">
+  <title>TicketRush — планы на хороший вечер</title>
+  <link rel="icon" href="/app/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/app/styles.css">
+  <script type="module" src="/app/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Перейти к содержимому</a>
+  <header class="header">
+    <div class="header-inner">
+      <a class="brand" href="#/" aria-label="TicketRush, главная"><span class="brand-mark">t<span>r</span></span>ticket<span>rush</span><span class="brand-dot"></span></a>
+      <nav class="nav" aria-label="Главная навигация">
+        <a href="#/" data-nav="catalog">Афиша</a>
+        <a href="#/account" data-nav="account">Мои билеты</a>
+        <a href="#/workspace" data-nav="workspace">Организаторам</a>
+      </nav>
+      <div id="user-menu"><a class="button small" href="#/login">Войти <span aria-hidden="true">↗</span></a></div>
+    </div>
+  </header>
+  <main id="content" tabindex="-1"><div class="page loading" role="status">Загружаем афишу…</div></main>
+  <footer class="footer"><a class="footer-brand" href="#/">ticket<span>rush</span><span class="brand-dot"></span></a><p>Меньше «как-нибудь потом». Больше впечатлений.</p><span>Учебный проект · Demo-оплата</span></footer>
+  <div id="toasts" class="toasts" aria-live="polite" aria-atomic="false"></div>
+  <noscript>Для работы TicketRush включите JavaScript в браузере.</noscript>
+</body>
+</html>

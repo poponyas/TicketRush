@@ -2,13 +2,16 @@ STEPS ?= 1
 
 .PHONY: env-up env-down migrate-prepare migrate-up migrate-down migrate-version seed run test test-integration
 .PHONY: clickhouse-up migrate-clickhouse-up migrate-clickhouse-down migrate-clickhouse-version
-.PHONY: init-env setup kafka-init storage-init analytics test-all
+.PHONY: init-env setup kafka-init storage-init analytics test-all test-web
 
 init-env:
 	sh scripts/init_env.sh
 
 test:
 	go test -mod=readonly -race ./...
+
+test-web:
+	node web/tests/api.test.mjs
 
 test-integration:
 	sh scripts/test_integration.sh

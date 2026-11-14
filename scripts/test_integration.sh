@@ -46,11 +46,44 @@ for migration in "$repo_dir"/migrations/*.up.sql; do
         -U ticketrush_test -d ticketrush_test < "$migration"
 done
 
-# Verify that development fixtures match the latest schema and can be reapplied.
-for seed_attempt in 1 2; do
-    docker exec -i "$container_id" psql -X -q -v ON_ERROR_STOP=1 \
-        -U ticketrush_test -d ticketrush_test < "$repo_dir/scripts/seed.sql"
-done
+# Simulate demo users created before password authentication was added.
+docker exec -i "$container_id" psql -X -q -v ON_ERROR_STOP=1 \
+    -U ticketrush_test -d ticketrush_test <<'SQL'
+INSERT INTO users(id,email) VALUES
+ ('22222222-2222-4222-8222-222222222222','organizer@example.test'),
+ ('88888888-8888-4888-8888-888888888888','venue-owner@example.test');
+SQL
+
+docker exec -i "$container_id" psql -X -q -v ON_ERROR_STOP=1 \
+    -U ticketrush_test -d ticketrush_test < "$repo_dir/scripts/seed.sql"
+docker exec -i "$container_id" psql -X -q -v ON_ERROR_STOP=1 \
+    -U ticketrush_test -d ticketrush_test <<'SQL'
+DO $$ BEGIN
+ IF (SELECT count(*) FROM users WHERE email IN
+     ('organizer@example.test','venue-owner@example.test') AND password_hash IS NOT NULL) <> 2 THEN
+   RAISE EXCEPTION 'seed did not initialize legacy demo passwords';
+ END IF;
+END $$;
+UPDATE users SET password_hash = 'seed-regression-existing-hash'
+WHERE id = '88888888-8888-4888-8888-888888888888';
+SQL
+
+# Reapplying fixtures must preserve a password that is already set.
+docker exec -i "$container_id" psql -X -q -v ON_ERROR_STOP=1 \
+    -U ticketrush_test -d ticketrush_test < "$repo_dir/scripts/seed.sql"
+docker exec -i "$container_id" psql -X -q -v ON_ERROR_STOP=1 \
+    -U ticketrush_test -d ticketrush_test <<'SQL'
+DO $$ BEGIN
+ IF (SELECT password_hash FROM users
+     WHERE id = '88888888-8888-4888-8888-888888888888') IS DISTINCT FROM 'seed-regression-existing-hash' THEN
+   RAISE EXCEPTION 'seed overwrote an existing password';
+ END IF;
+END $$;
+-- Restore the public demo hash in this disposable database for HTTP smoke.
+UPDATE users SET password_hash = (SELECT password_hash FROM users
+ WHERE id = '22222222-2222-4222-8222-222222222222')
+WHERE id = '88888888-8888-4888-8888-888888888888';
+SQL
 
 port=$(docker port "$container_id" 5432/tcp)
 port=${port##*:}

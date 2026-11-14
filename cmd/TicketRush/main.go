@@ -30,6 +30,9 @@ import (
 	auth_token "github.com/poponyas/TicketRush/internal/core/security/token"
 	"github.com/poponyas/TicketRush/internal/core/storage/s3"
 	core_tracing "github.com/poponyas/TicketRush/internal/core/tracing"
+	account_repository "github.com/poponyas/TicketRush/internal/feature/account/repository"
+	account_service "github.com/poponyas/TicketRush/internal/feature/account/service"
+	account_transport "github.com/poponyas/TicketRush/internal/feature/account/transport"
 	analytics_repository "github.com/poponyas/TicketRush/internal/feature/analytics/repository"
 	analytics_service "github.com/poponyas/TicketRush/internal/feature/analytics/service"
 	analytics_transport "github.com/poponyas/TicketRush/internal/feature/analytics/transport"
@@ -63,6 +66,7 @@ import (
 	venue_repository "github.com/poponyas/TicketRush/internal/feature/venue/repository"
 	venue_service "github.com/poponyas/TicketRush/internal/feature/venue/service"
 	venue_http_tranpsort "github.com/poponyas/TicketRush/internal/feature/venue/tranpsort"
+	"github.com/poponyas/TicketRush/web"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/segmentio/kafka-go"
@@ -247,6 +251,13 @@ func run(ctx context.Context) error {
 	}
 
 	// --------------------------------------------------------------------------
+
+	accountTransport := account_transport.New(account_service.New(account_repository.New(pool)))
+	protected.Get("/api/v1/me", accountTransport.Profile)
+	protected.Get("/api/v1/me/bookings", accountTransport.Bookings)
+	frontend := web.Handler()
+	r.Get("/", frontend.ServeHTTP)
+	r.Handle("/app/*", http.StripPrefix("/app", frontend))
 
 	//  ----------------------------- EVENTS -------------------------------------
 	cacheMetrics := events_cache.NewCacheMetrics()

@@ -1,10 +1,13 @@
 -- Local development fixtures. Run only against a development database.
 -- Demo login: organizer@example.test / TicketRush-demo-2026!
 -- The public demo credentials are for local development only.
+-- Backfill missing passwords on legacy demo accounts; keep existing passwords.
 BEGIN;
 INSERT INTO users(id,email,display_name,password_hash)
 VALUES ('22222222-2222-4222-8222-222222222222','organizer@example.test','Dev organizer','$argon2id$v=19$m=19456,t=2,p=1$WqGMhPAZ4ks9oNO0nHg+dg$ohVrMwpHoBDy50Xbf6xgdG8HvOh+VzzJoACstQtSD3U')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE
+SET password_hash = EXCLUDED.password_hash
+WHERE users.email = EXCLUDED.email AND users.password_hash IS NULL;
 INSERT INTO organizers(id,name)
 VALUES ('33333333-3333-4333-8333-333333333333','TicketRush Demo')
 ON CONFLICT (id) DO NOTHING;
@@ -18,7 +21,9 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO users(id,email,display_name,password_hash)
 VALUES ('88888888-8888-4888-8888-888888888888','venue-owner@example.test','Dev venue owner','$argon2id$v=19$m=19456,t=2,p=1$WqGMhPAZ4ks9oNO0nHg+dg$ohVrMwpHoBDy50Xbf6xgdG8HvOh+VzzJoACstQtSD3U')
-ON CONFLICT(id) DO NOTHING;
+ON CONFLICT(id) DO UPDATE
+SET password_hash = EXCLUDED.password_hash
+WHERE users.email = EXCLUDED.email AND users.password_hash IS NULL;
 INSERT INTO user_roles(user_id,role) VALUES('88888888-8888-4888-8888-888888888888','ownerVenue') ON CONFLICT DO NOTHING;
 
 -- A separate published scenario for the end-to-end demo; existing data is kept.
